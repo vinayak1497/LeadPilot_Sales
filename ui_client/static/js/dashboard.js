@@ -741,6 +741,15 @@ class DashboardManager {
                     <span>${this.escapeHtml(business.phone)}</span>
                 </div>` : ''}
             </div>
+            <div class="lead-manager-actions" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
+                <button class="btn-create-website" onclick="event.stopPropagation(); dashboardManagerInstance.showWebsitePromptDialog('${business.id}')" 
+                    style="width: 100%; padding: 10px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                           color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;
+                           display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px;
+                           box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;">
+                    <i class="fas fa-magic"></i> Create Website
+                </button>
+            </div>
         `;
         
         // Add to Lead Manager column with animation
@@ -1718,6 +1727,297 @@ Phone: ${business.phone || 'N/A'}`;
     }
 
     // ===== End Email Draft Dialog Methods =====
+    
+    // ===== Website Creation Prompt Methods =====
+    
+    showWebsitePromptDialog(businessId) {
+        const business = this.businesses.get(businessId);
+        if (!business) {
+            this.showErrorToast('Business not found');
+            return;
+        }
+        
+        console.log('Showing website prompt for business:', business.name);
+        
+        // Generate the website creation prompt
+        const websitePrompt = this.generateWebsitePrompt(business);
+        
+        // Store for later use
+        this.currentWebsiteBusiness = business;
+        
+        // Create modal HTML
+        const modalHtml = `
+            <div class="modal-overlay" id="website-prompt-overlay" onclick="dashboardManagerInstance.closeWebsitePrompt(event)">
+                <div class="modal-dialog" style="max-width: 800px;" onclick="event.stopPropagation()">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px 12px 0 0;">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-magic"></i> Website Creation Prompt - ${this.escapeHtml(business.name)}
+                        </h3>
+                        <button class="modal-close" onclick="dashboardManagerInstance.closeWebsitePrompt()" style="color: white; background: rgba(255,255,255,0.2);">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-content" style="max-height: 60vh; overflow-y: auto; padding: 20px;">
+                        <div class="business-summary" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="margin-top: 0; color: #2c3e50; display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-store"></i> Business Information
+                            </h4>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; font-size: 14px;">
+                                <div><strong>Name:</strong> ${this.escapeHtml(business.name)}</div>
+                                <div><strong>Location:</strong> ${this.escapeHtml(business.city || 'N/A')}</div>
+                                <div><strong>Phone:</strong> ${this.escapeHtml(business.phone || 'N/A')}</div>
+                                <div><strong>Rating:</strong> ${business.rating ? '⭐ ' + business.rating : 'N/A'}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="prompt-section">
+                            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: #2c3e50; font-size: 16px;">
+                                <i class="fas fa-edit"></i> Edit Your Website Creation Prompt:
+                            </label>
+                            <p style="color: #666; font-size: 13px; margin-bottom: 10px;">
+                                This prompt is customized for ${this.escapeHtml(business.name)}. 
+                                Feel free to edit it to add more details or customize the website requirements.
+                            </p>
+                            <textarea id="website-prompt-content" 
+                                style="width: 100%; min-height: 350px; padding: 15px; 
+                                       border: 2px solid #667eea; border-radius: 8px; 
+                                       font-family: 'Monaco', 'Consolas', monospace; font-size: 13px; line-height: 1.6;
+                                       background: #fafafa; resize: vertical;"
+                            >${websitePrompt}</textarea>
+                        </div>
+                        
+                        <div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #2196f3;">
+                            <div style="display: flex; align-items: flex-start; gap: 10px;">
+                                <i class="fas fa-info-circle" style="color: #1976d2; font-size: 20px; margin-top: 2px;"></i>
+                                <div>
+                                    <strong style="color: #1565c0;">How it works:</strong>
+                                    <p style="margin: 5px 0 0 0; color: #1976d2; font-size: 13px;">
+                                        Click "Create in Firebase Studio" to open Google's Project IDX with this prompt. 
+                                        The AI will generate a complete website MVP for this business!
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-actions" style="border-top: 1px solid #ddd; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+                        <button class="btn-secondary" onclick="dashboardManagerInstance.closeWebsitePrompt()" style="padding: 10px 20px;">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-secondary" onclick="dashboardManagerInstance.copyWebsitePrompt()" style="padding: 10px 20px;">
+                                <i class="fas fa-copy"></i> Copy Prompt
+                            </button>
+                            <button onclick="dashboardManagerInstance.openFirebaseStudio()" 
+                                style="padding: 12px 25px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                                       color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;
+                                       display: flex; align-items: center; gap: 8px; font-size: 14px;
+                                       box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);">
+                                <i class="fas fa-rocket"></i> Create in Firebase Studio
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove any existing modal
+        const existingModal = document.getElementById('website-prompt-overlay');
+        if (existingModal) existingModal.remove();
+        
+        // Add to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
+    generateWebsitePrompt(business) {
+        const businessName = business.name || 'Business';
+        const location = business.city || business.address || 'the local area';
+        const phone = business.phone || '';
+        const rating = business.rating || '';
+        const reviewCount = business.review_count || '';
+        
+        // Detect business type from name
+        const nameLower = businessName.toLowerCase();
+        let businessType = 'business';
+        let specificFeatures = '';
+        
+        if (nameLower.includes('restaurant') || nameLower.includes('cafe') || nameLower.includes('kitchen') || 
+            nameLower.includes('dining') || nameLower.includes('food') || nameLower.includes('bar') ||
+            nameLower.includes('hotel') || nameLower.includes('grill')) {
+            businessType = 'restaurant';
+            specificFeatures = `
+- Menu section with food categories (appetizers, main courses, desserts, beverages)
+- Online table reservation system with date/time picker
+- Photo gallery showcasing dishes and ambiance
+- Customer reviews and testimonials section
+- Special offers and daily specials banner
+- Delivery/takeaway ordering information`;
+        } else if (nameLower.includes('salon') || nameLower.includes('spa') || nameLower.includes('beauty')) {
+            businessType = 'salon/spa';
+            specificFeatures = `
+- Services menu with pricing
+- Online appointment booking system
+- Staff/stylist profiles with photos
+- Before/after gallery
+- Customer testimonials
+- Special packages and offers`;
+        } else if (nameLower.includes('gym') || nameLower.includes('fitness') || nameLower.includes('yoga')) {
+            businessType = 'fitness center';
+            specificFeatures = `
+- Class schedules and timetables
+- Membership plans and pricing
+- Trainer profiles
+- Facilities showcase
+- Online class booking
+- Fitness tips blog section`;
+        } else if (nameLower.includes('clinic') || nameLower.includes('hospital') || nameLower.includes('doctor') || nameLower.includes('dental')) {
+            businessType = 'healthcare';
+            specificFeatures = `
+- Services/treatments offered
+- Doctor/staff profiles with qualifications
+- Online appointment booking
+- Patient testimonials
+- Health tips and articles
+- Insurance information`;
+        } else if (nameLower.includes('shop') || nameLower.includes('store') || nameLower.includes('mart')) {
+            businessType = 'retail store';
+            specificFeatures = `
+- Product catalog with categories
+- Featured products section
+- Special offers and discounts
+- Store location and hours
+- Customer reviews
+- Newsletter signup`;
+        } else {
+            specificFeatures = `
+- Services/products offered
+- About us section with company story
+- Customer testimonials
+- Contact form
+- FAQ section
+- Newsletter signup`;
+        }
+
+        return `Create a modern, professional, and fully responsive website for "${businessName}" - a ${businessType} located in ${location}.
+
+## Business Information:
+- **Business Name:** ${businessName}
+- **Type:** ${businessType.charAt(0).toUpperCase() + businessType.slice(1)}
+- **Location:** ${location}
+${phone ? `- **Phone:** ${phone}` : ''}
+${rating ? `- **Rating:** ${rating}/5 stars${reviewCount ? ` (${reviewCount} reviews)` : ''}` : ''}
+
+## Website Requirements:
+
+### Design & Aesthetics:
+- Modern, clean, and professional design
+- Mobile-first responsive layout
+- Attractive hero section with high-quality imagery
+- Consistent color scheme matching the ${businessType} industry
+- Smooth animations and transitions
+- Easy-to-read typography
+
+### Essential Pages & Sections:
+1. **Home Page:**
+   - Eye-catching hero section with business tagline
+   - Quick overview of services/offerings
+   - Call-to-action buttons (Contact, Book Now, View Menu, etc.)
+   - Customer testimonials carousel
+
+2. **About Page:**
+   - Business story and mission
+   - Team/staff introduction
+   - Why choose us section
+
+3. **Services/Products Page:**
+${specificFeatures}
+
+4. **Contact Page:**
+   - Contact form with validation
+   - Business address with embedded Google Maps
+   - Phone number and email
+   - Operating hours
+   - Social media links
+
+5. **Footer:**
+   - Quick links navigation
+   - Contact information
+   - Social media icons
+   - Newsletter subscription
+   - Copyright notice
+
+### Technical Requirements:
+- HTML5, CSS3, JavaScript
+- Fully responsive (mobile, tablet, desktop)
+- Fast loading and optimized images
+- SEO-friendly structure
+- Accessible (WCAG compliant)
+- Cross-browser compatible
+
+### Features to Include:
+- Smooth scroll navigation
+- Image lazy loading
+- Contact form with validation
+- Interactive elements (hover effects, animations)
+- Social media integration
+- Google Maps integration for location
+
+Please create a complete, production-ready website that ${businessName} can use to establish their online presence and attract more customers.`;
+    }
+    
+    copyWebsitePrompt() {
+        const promptTextarea = document.getElementById('website-prompt-content');
+        if (!promptTextarea) return;
+        
+        navigator.clipboard.writeText(promptTextarea.value).then(() => {
+            this.showSuccessToast('Prompt copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            // Fallback for older browsers
+            promptTextarea.select();
+            document.execCommand('copy');
+            this.showSuccessToast('Prompt copied to clipboard!');
+        });
+    }
+    
+    openFirebaseStudio() {
+        const promptTextarea = document.getElementById('website-prompt-content');
+        if (!promptTextarea) {
+            this.showErrorToast('Prompt not found');
+            return;
+        }
+        
+        const prompt = promptTextarea.value.trim();
+        if (!prompt) {
+            this.showErrorToast('Please enter a prompt');
+            return;
+        }
+        
+        // Encode the prompt for URL
+        const encodedPrompt = encodeURIComponent(prompt);
+        
+        // Firebase Studio / Project IDX URL with prompt
+        // Using the new Gemini-powered project creation
+        const firebaseStudioUrl = `https://idx.google.com/new/gemini?prompt=${encodedPrompt}`;
+        
+        // Open in new tab
+        window.open(firebaseStudioUrl, '_blank');
+        
+        this.showSuccessToast('Opening Firebase Studio... The prompt will be automatically applied!');
+        
+        // Close the modal
+        this.closeWebsitePrompt();
+    }
+    
+    closeWebsitePrompt(event) {
+        if (event && event.target.id !== 'website-prompt-overlay') return;
+        
+        const modal = document.getElementById('website-prompt-overlay');
+        if (modal) modal.remove();
+        
+        this.currentWebsiteBusiness = null;
+    }
+    
+    // ===== End Website Creation Prompt Methods =====
     
     showSdrDialog(business) {
         console.log('Showing SDR dialog for business:', business.name);
