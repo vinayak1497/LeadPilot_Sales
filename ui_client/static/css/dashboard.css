@@ -2171,3 +2171,121 @@
   opacity: 0.7;
   border-left: 4px solid var(--primary-color);
 }
+
+/* ===== Calendar Column Styles ===== */
+
+#calendar-column .column-header {
+  background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+}
+
+#calendar-column .column-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: white;
+}
+
+.business-card.meeting-scheduled {
+  border-left: 4px solid #4285f4;
+  background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
+}
+
+.business-card.meeting-scheduled:hover {
+  box-shadow: 0 4px 20px rgba(66, 133, 244, 0.2);
+}
+
+.meeting-details {
+  background: #f8f9fa;
+  padding: 10px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+.meeting-details .detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.meeting-details .detail:last-child {
+  margin-bottom: 0;
+}
+
+.calendar-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.calendar-actions button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.calendar-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Schedule Meeting Button */
+.btn-schedule-meeting {
+  width: 100%;
+  padding: 10px 15px;
+  background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(66, 133, 244, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-schedule-meeting:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);
+}
+
+/* Modal for scheduling */
+#schedule-meeting-overlay .form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+#schedule-meeting-overlay input,
+#schedule-meeting-overlay select,
+#schedule-meeting-overlay textarea {
+  width: 100%;
+  padding: 12px 15px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s;
+}
+
+#schedule-meeting-overlay input:focus,
+#schedule-meeting-overlay select:focus,
+#schedule-meeting-overlay textarea:focus {
+  border-color: #4285f4;
+  outline: none;
+}
+
+/* ===== End Calendar Column Styles ===== */

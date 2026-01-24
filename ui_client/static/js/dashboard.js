@@ -742,12 +742,12 @@ class DashboardManager {
                 </div>` : ''}
             </div>
             <div class="lead-manager-actions" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
-                <button class="btn-create-website" onclick="event.stopPropagation(); dashboardManagerInstance.showWebsitePromptDialog('${business.id}')" 
-                    style="width: 100%; padding: 10px 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                <button class="btn-schedule-meeting" onclick="event.stopPropagation(); dashboardManagerInstance.showScheduleMeetingDialog('${business.id}', '${this.escapeHtml(business.name).replace(/'/g, "\\'")}')" 
+                    style="width: 100%; padding: 10px 15px; background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); 
                            color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;
                            display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px;
-                           box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;">
-                    <i class="fas fa-magic"></i> Create Website
+                           box-shadow: 0 2px 8px rgba(66, 133, 244, 0.3); transition: all 0.3s ease;">
+                    <i class="fas fa-calendar-plus"></i> Schedule a Meeting
                 </button>
             </div>
         `;
@@ -819,8 +819,8 @@ class DashboardManager {
                 <button class="btn-small btn-success" onclick="event.stopPropagation(); dashboardManagerInstance.showEmailDraftDialog(dashboardManagerInstance.businesses.get('${business.id}'))" style="background: #28a745; color: white;">
                     <i class="fas fa-envelope"></i> Send Email
                 </button>
-                <button class="btn-small btn-confirm" onclick="event.stopPropagation(); dashboardManagerInstance.confirmLeadManually('${business.id}')" style="background: #17a2b8; color: white;">
-                    <i class="fas fa-check-circle"></i> Confirm Lead
+                <button class="btn-small btn-website" onclick="event.stopPropagation(); dashboardManagerInstance.showWebsitePromptDialog('${business.id}')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                    <i class="fas fa-magic"></i> Create Website
                 </button>
             </div>
         `;
@@ -2018,7 +2018,465 @@ Please create a complete, production-ready website that ${businessName} can use 
     }
     
     // ===== End Website Creation Prompt Methods =====
+
+    // ===== Meeting Scheduling Methods =====
     
+    showScheduleMeetingDialog(businessId, businessName) {
+        const business = this.businesses.get(businessId);
+        if (!business) {
+            this.showErrorToast('Business not found');
+            return;
+        }
+        
+        console.log('Showing schedule meeting dialog for business:', business.name);
+        
+        // Get default date/time (tomorrow at 10:00 AM)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(10, 0, 0, 0);
+        
+        const defaultDate = tomorrow.toISOString().split('T')[0];
+        const defaultTime = '10:00';
+        
+        // Store for later use
+        this.currentMeetingBusiness = business;
+        
+        // Create modal HTML
+        const modalHtml = `
+            <div class="modal-overlay" id="schedule-meeting-overlay" onclick="dashboardManagerInstance.closeScheduleMeetingDialog(event)">
+                <div class="modal-dialog" style="max-width: 550px;" onclick="event.stopPropagation()">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white; border-radius: 12px 12px 0 0;">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                            <i class="fas fa-calendar-plus"></i> Schedule Meeting with ${this.escapeHtml(business.name)}
+                        </h3>
+                        <button class="modal-close" onclick="dashboardManagerInstance.closeScheduleMeetingDialog()" style="color: white; background: rgba(255,255,255,0.2);">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-content" style="padding: 25px;">
+                        <form id="schedule-meeting-form">
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                                    <i class="fas fa-heading" style="margin-right: 5px; color: #4285f4;"></i> Meeting Title
+                                </label>
+                                <input type="text" id="meeting-title" 
+                                    value="Meeting with ${this.escapeHtml(business.name)}"
+                                    style="width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; 
+                                           font-size: 14px; transition: border-color 0.3s;"
+                                    onfocus="this.style.borderColor='#4285f4'" onblur="this.style.borderColor='#e0e0e0'">
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                                <div class="form-group">
+                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                                        <i class="fas fa-calendar" style="margin-right: 5px; color: #ea4335;"></i> Date
+                                    </label>
+                                    <input type="date" id="meeting-date" value="${defaultDate}"
+                                        style="width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; 
+                                               font-size: 14px; cursor: pointer;"
+                                        onfocus="this.style.borderColor='#4285f4'" onblur="this.style.borderColor='#e0e0e0'">
+                                </div>
+                                <div class="form-group">
+                                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                                        <i class="fas fa-clock" style="margin-right: 5px; color: #fbbc05;"></i> Time
+                                    </label>
+                                    <input type="time" id="meeting-time" value="${defaultTime}"
+                                        style="width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; 
+                                               font-size: 14px; cursor: pointer;"
+                                        onfocus="this.style.borderColor='#4285f4'" onblur="this.style.borderColor='#e0e0e0'">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                                    <i class="fas fa-hourglass-half" style="margin-right: 5px; color: #34a853;"></i> Duration
+                                </label>
+                                <select id="meeting-duration" 
+                                    style="width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; 
+                                           font-size: 14px; cursor: pointer; background: white;"
+                                    onfocus="this.style.borderColor='#4285f4'" onblur="this.style.borderColor='#e0e0e0'">
+                                    <option value="15">15 minutes</option>
+                                    <option value="30" selected>30 minutes</option>
+                                    <option value="45">45 minutes</option>
+                                    <option value="60">1 hour</option>
+                                    <option value="90">1.5 hours</option>
+                                    <option value="120">2 hours</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                                    <i class="fas fa-users" style="margin-right: 5px; color: #9c27b0;"></i> Attendee Email (optional)
+                                </label>
+                                <input type="email" id="meeting-attendee" 
+                                    placeholder="Enter attendee's email address"
+                                    value="${this.escapeHtml(business.email || '')}"
+                                    style="width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; 
+                                           font-size: 14px;"
+                                    onfocus="this.style.borderColor='#4285f4'" onblur="this.style.borderColor='#e0e0e0'">
+                            </div>
+                            
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #2c3e50;">
+                                    <i class="fas fa-align-left" style="margin-right: 5px; color: #ff5722;"></i> Meeting Description
+                                </label>
+                                <textarea id="meeting-description" rows="3"
+                                    placeholder="Add meeting agenda or notes..."
+                                    style="width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 8px; 
+                                           font-size: 14px; resize: vertical; font-family: inherit;"
+                                    onfocus="this.style.borderColor='#4285f4'" onblur="this.style.borderColor='#e0e0e0'"
+                                >Discussion with ${this.escapeHtml(business.name)} regarding potential collaboration and project details.</textarea>
+                            </div>
+                            
+                            <div style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 15px; border-radius: 8px; border-left: 4px solid #4caf50;">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <i class="fab fa-google" style="color: #4caf50; font-size: 24px;"></i>
+                                    <div>
+                                        <strong style="color: #2e7d32;">Google Meet Link</strong>
+                                        <p style="margin: 5px 0 0 0; color: #388e3c; font-size: 13px;">
+                                            A Google Meet video conferencing link will be automatically generated and added to the calendar event.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-actions" style="border-top: 1px solid #ddd; padding: 15px 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button class="btn-secondary" onclick="dashboardManagerInstance.closeScheduleMeetingDialog()" style="padding: 10px 20px;">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button onclick="dashboardManagerInstance.createGoogleMeeting()" 
+                            style="padding: 12px 25px; background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); 
+                                   color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;
+                                   display: flex; align-items: center; gap: 8px; font-size: 14px;
+                                   box-shadow: 0 4px 15px rgba(66, 133, 244, 0.4);">
+                            <i class="fas fa-video"></i> Create Meeting & Add to Calendar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove any existing modal
+        const existingModal = document.getElementById('schedule-meeting-overlay');
+        if (existingModal) existingModal.remove();
+        
+        // Add to body
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+    
+    createGoogleMeeting() {
+        const title = document.getElementById('meeting-title')?.value.trim();
+        const date = document.getElementById('meeting-date')?.value;
+        const time = document.getElementById('meeting-time')?.value;
+        const duration = parseInt(document.getElementById('meeting-duration')?.value || '30');
+        const attendee = document.getElementById('meeting-attendee')?.value.trim();
+        const description = document.getElementById('meeting-description')?.value.trim();
+        
+        if (!title || !date || !time) {
+            this.showErrorToast('Please fill in all required fields');
+            return;
+        }
+        
+        // Create start and end date-time
+        const startDateTime = new Date(`${date}T${time}:00`);
+        const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+        
+        // Format dates for Google Calendar URL (YYYYMMDDTHHMMSS)
+        const formatGoogleDate = (d) => {
+            return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        };
+        
+        const startStr = formatGoogleDate(startDateTime);
+        const endStr = formatGoogleDate(endDateTime);
+        
+        // Build Google Calendar URL with conferencing (Google Meet)
+        let calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE`;
+        calendarUrl += `&text=${encodeURIComponent(title)}`;
+        calendarUrl += `&dates=${startStr}/${endStr}`;
+        calendarUrl += `&details=${encodeURIComponent(description + '\\n\\n---\\nMeeting scheduled via SalesShortcut')}`;
+        
+        if (attendee) {
+            calendarUrl += `&add=${encodeURIComponent(attendee)}`;
+        }
+        
+        // Request conference data (Google Meet) - Note: This works with Google Workspace
+        calendarUrl += `&conf=1`;
+        
+        // Open Google Calendar in new tab
+        window.open(calendarUrl, '_blank');
+        
+        // Store meeting info for the Calendar column
+        const meetingInfo = {
+            businessId: this.currentMeetingBusiness.id,
+            businessName: this.currentMeetingBusiness.name,
+            title: title,
+            date: date,
+            time: time,
+            duration: duration,
+            attendee: attendee,
+            description: description,
+            createdAt: new Date().toISOString(),
+            status: 'scheduled'
+        };
+        
+        // Add to scheduled meetings storage
+        if (!this.scheduledMeetings) {
+            this.scheduledMeetings = new Map();
+        }
+        this.scheduledMeetings.set(this.currentMeetingBusiness.id, meetingInfo);
+        
+        // Move to Calendar column
+        this.moveBusinessToCalendarColumn(this.currentMeetingBusiness, meetingInfo);
+        
+        this.showSuccessToast('Opening Google Calendar to create meeting... Don\'t forget to save the event!');
+        
+        // Close the dialog
+        this.closeScheduleMeetingDialog();
+    }
+    
+    closeScheduleMeetingDialog(event) {
+        if (event && event.target.id !== 'schedule-meeting-overlay') return;
+        
+        const modal = document.getElementById('schedule-meeting-overlay');
+        if (modal) modal.remove();
+        
+        this.currentMeetingBusiness = null;
+    }
+    
+    moveBusinessToCalendarColumn(business, meetingInfo) {
+        // First, check if Calendar column exists, if not create it
+        let calendarColumn = document.getElementById('calendar-column');
+        
+        if (!calendarColumn) {
+            // Create Calendar column after Lead Manager column
+            const leadManagerColumn = document.querySelector('.kanban-column:nth-child(4)'); // Lead Manager is 4th
+            if (leadManagerColumn) {
+                const calendarColumnHtml = `
+                    <div class="kanban-column" id="calendar-column">
+                        <div class="column-header" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);">
+                            <div class="column-title">
+                                <i class="fas fa-calendar-check" style="margin-right: 8px;"></i>
+                                <span>Scheduled Meetings</span>
+                            </div>
+                            <span class="column-count" id="calendar-count">0</span>
+                        </div>
+                        <div class="column-content" id="calendar-content">
+                            <div class="column-placeholder" id="calendar-placeholder">
+                                <i class="fas fa-calendar-alt"></i>
+                                <p>Scheduled meetings will appear here</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                leadManagerColumn.insertAdjacentHTML('afterend', calendarColumnHtml);
+                calendarColumn = document.getElementById('calendar-column');
+            }
+        }
+        
+        const calendarContent = document.getElementById('calendar-content');
+        if (!calendarContent) {
+            console.error('Calendar content column not found');
+            return;
+        }
+        
+        // Hide placeholder
+        const placeholder = document.getElementById('calendar-placeholder');
+        if (placeholder) placeholder.style.display = 'none';
+        
+        // Remove from Lead Manager column if present
+        const existingCard = document.querySelector(`#lead-manager-content .business-card[data-business-id="${business.id}"]`);
+        if (existingCard) {
+            existingCard.remove();
+        }
+        
+        // Format meeting date and time
+        const meetingDate = new Date(`${meetingInfo.date}T${meetingInfo.time}`);
+        const formattedDate = meetingDate.toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        const formattedTime = meetingDate.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+        });
+        
+        // Create Calendar meeting card
+        const card = document.createElement('div');
+        card.className = 'business-card compact meeting-scheduled';
+        card.setAttribute('data-business-id', business.id);
+        
+        card.innerHTML = `
+            <div class="business-header">
+                <div class="business-title">
+                    <h4>${this.escapeHtml(business.name)}</h4>
+                </div>
+                <span class="status-badge" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white;">
+                    <i class="fas fa-video" style="margin-right: 4px;"></i> Meeting
+                </span>
+            </div>
+            <div class="meeting-details" style="margin-top: 10px;">
+                <div class="detail" style="color: #ea4335; font-weight: 600;">
+                    <i class="fas fa-calendar"></i>
+                    <span>${formattedDate}</span>
+                </div>
+                <div class="detail" style="color: #4285f4; font-weight: 600;">
+                    <i class="fas fa-clock"></i>
+                    <span>${formattedTime} (${meetingInfo.duration} min)</span>
+                </div>
+                <div class="detail" style="margin-top: 5px; font-size: 13px; color: #666;">
+                    <i class="fas fa-heading"></i>
+                    <span>${this.escapeHtml(meetingInfo.title)}</span>
+                </div>
+            </div>
+            <div class="calendar-actions" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0; display: flex; gap: 8px;">
+                <button class="btn-small" onclick="event.stopPropagation(); dashboardManagerInstance.openGoogleCalendar()" 
+                    style="flex: 1; padding: 8px 12px; background: #4285f4; color: white; border: none; border-radius: 6px; 
+                           cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <i class="fas fa-external-link-alt"></i> Open Calendar
+                </button>
+                <button class="btn-small" onclick="event.stopPropagation(); dashboardManagerInstance.copyMeetLink('${business.id}')" 
+                    style="flex: 1; padding: 8px 12px; background: #34a853; color: white; border: none; border-radius: 6px; 
+                           cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <i class="fas fa-copy"></i> Copy Meet Link
+                </button>
+            </div>
+            <div id="meet-link-${business.id}" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                <label style="font-size: 11px; color: #666; display: block; margin-bottom: 5px;">
+                    <i class="fab fa-google"></i> Google Meet Link:
+                </label>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="meet-link-input-${business.id}" 
+                        placeholder="Paste your Meet link here..." 
+                        style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
+                    <button onclick="event.stopPropagation(); dashboardManagerInstance.saveMeetLink('${business.id}')"
+                        style="padding: 8px 12px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                        <i class="fas fa-save"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add to Calendar column with animation
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        calendarContent.insertBefore(card, calendarContent.firstChild);
+        
+        // Trigger animation
+        requestAnimationFrame(() => {
+            card.style.transition = 'all 0.3s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        });
+        
+        // Update counts
+        this.updateColumnCount('calendar-count', calendarContent.querySelectorAll('.business-card').length);
+        this.updateLeadManagerCount();
+    }
+    
+    openGoogleCalendar() {
+        window.open('https://calendar.google.com/', '_blank');
+    }
+    
+    copyMeetLink(businessId) {
+        const meetLinkContainer = document.getElementById(`meet-link-${businessId}`);
+        const meetLinkInput = document.getElementById(`meet-link-input-${businessId}`);
+        
+        if (!meetLinkContainer || !meetLinkInput) return;
+        
+        // Toggle visibility
+        if (meetLinkContainer.style.display === 'none') {
+            meetLinkContainer.style.display = 'block';
+            
+            // Check if we have a saved link
+            const savedLink = this.savedMeetLinks?.get(businessId);
+            if (savedLink) {
+                // Copy to clipboard
+                navigator.clipboard.writeText(savedLink).then(() => {
+                    this.showSuccessToast('Meet link copied to clipboard!');
+                }).catch(() => {
+                    meetLinkInput.select();
+                    document.execCommand('copy');
+                    this.showSuccessToast('Meet link copied!');
+                });
+            } else {
+                meetLinkInput.focus();
+                this.showInfoToast('Paste your Google Meet link from the calendar event');
+            }
+        } else {
+            meetLinkContainer.style.display = 'none';
+        }
+    }
+    
+    saveMeetLink(businessId) {
+        const meetLinkInput = document.getElementById(`meet-link-input-${businessId}`);
+        if (!meetLinkInput) return;
+        
+        const link = meetLinkInput.value.trim();
+        if (!link) {
+            this.showErrorToast('Please enter a Meet link');
+            return;
+        }
+        
+        // Validate it looks like a Google Meet link
+        if (!link.includes('meet.google.com')) {
+            this.showErrorToast('Please enter a valid Google Meet link');
+            return;
+        }
+        
+        // Save the link
+        if (!this.savedMeetLinks) {
+            this.savedMeetLinks = new Map();
+        }
+        this.savedMeetLinks.set(businessId, link);
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(link).then(() => {
+            this.showSuccessToast('Meet link saved and copied to clipboard!');
+        }).catch(() => {
+            this.showSuccessToast('Meet link saved!');
+        });
+        
+        // Update button text to show it's saved
+        const container = document.getElementById(`meet-link-${businessId}`);
+        if (container) {
+            container.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px;">
+                    <span style="font-size: 12px; color: #34a853;">
+                        <i class="fas fa-check-circle"></i> Link saved!
+                    </span>
+                    <button onclick="event.stopPropagation(); navigator.clipboard.writeText('${link}'); dashboardManagerInstance.showSuccessToast('Copied!')"
+                        style="padding: 5px 10px; background: #34a853; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+                        <i class="fas fa-copy"></i> Copy
+                    </button>
+                </div>
+            `;
+        }
+    }
+    
+    showInfoToast(message) {
+        this.showToast(message, 'info');
+    }
+    
+    updateColumnCount(countId, count) {
+        const countElement = document.getElementById(countId);
+        if (countElement) {
+            countElement.textContent = count;
+        }
+    }
+    
+    updateLeadManagerCount() {
+        const leadManagerContent = document.getElementById('lead-manager-content');
+        if (leadManagerContent) {
+            const count = leadManagerContent.querySelectorAll('.business-card').length;
+            this.updateColumnCount('lead-manager-count', count);
+        }
+    }
+    
+    // ===== End Meeting Scheduling Methods =====
+
     showSdrDialog(business) {
         console.log('Showing SDR dialog for business:', business.name);
         
