@@ -79,6 +79,22 @@ except ImportError as e:
     EMAIL_TRACKER_AVAILABLE = False
     logger.warning(f"Email tracker module not available: {e}")
 
+# Import Clerk authentication module
+try:
+    from .auth import (
+        get_current_user, require_auth, get_auth_state, optional_auth,
+        AuthState, CLERK_PUBLISHABLE_KEY
+    )
+    AUTH_AVAILABLE = True
+    logger.info("Clerk Authentication module loaded")
+except ImportError as e:
+    AUTH_AVAILABLE = False
+    CLERK_PUBLISHABLE_KEY = os.environ.get(
+        "CLERK_PUBLISHABLE_KEY",
+        "pk_test_ZGVjaWRpbmctcmVwdGlsZS00NS5jbGVyay5hY2NvdW50cy5kZXYk"
+    )
+    logger.warning(f"Auth module not available, auth disabled: {e}")
+
 # Ensure imports work
 try:
     import common.config
@@ -1134,6 +1150,79 @@ async def architecture_diagram(request: Request) -> HTMLResponse:
             "request": request
         }
     )
+
+
+# ============================================
+# AUTHENTICATION ROUTES (Clerk Integration)
+# ============================================
+
+@app.get("/auth/login", response_class=HTMLResponse)
+async def auth_login(request: Request) -> HTMLResponse:
+    """Serves the login page with Clerk authentication."""
+    return templates.TemplateResponse(
+        name="login.html",
+        context={
+            "request": request,
+            "clerk_publishable_key": CLERK_PUBLISHABLE_KEY
+        }
+    )
+
+
+@app.get("/auth/signup", response_class=HTMLResponse)
+async def auth_signup(request: Request) -> HTMLResponse:
+    """Serves the signup page with Clerk authentication."""
+    return templates.TemplateResponse(
+        name="signup.html",
+        context={
+            "request": request,
+            "clerk_publishable_key": CLERK_PUBLISHABLE_KEY
+        }
+    )
+
+
+@app.get("/auth/logout")
+async def auth_logout(request: Request) -> RedirectResponse:
+    """Handles logout by redirecting to home (Clerk handles session on client)."""
+    response = RedirectResponse(url="/", status_code=302)
+    # Clear any server-side session cookies if present
+    response.delete_cookie("__session")
+    response.delete_cookie("__clerk_db_jwt")
+    return response
+
+
+@app.get("/api/auth/user")
+async def get_user_api(request: Request) -> JSONResponse:
+    """API endpoint to get current user info."""
+    if AUTH_AVAILABLE:
+        user = await get_current_user(request)
+        if user:
+            auth_state = AuthState(user)
+            return JSONResponse(content={
+                "authenticated": True,
+                "user": auth_state.to_dict()
+            })
+    
+    return JSONResponse(content={
+        "authenticated": False,
+        "user": None
+    })
+
+
+@app.get("/api/auth/verify")
+async def verify_auth(request: Request) -> JSONResponse:
+    """Verify if the current session is authenticated."""
+    if AUTH_AVAILABLE:
+        user = await get_current_user(request)
+        return JSONResponse(content={
+            "authenticated": user is not None,
+            "user_id": user.get("sub") if user else None
+        })
+    
+    return JSONResponse(content={
+        "authenticated": False,
+        "message": "Auth module not available"
+    })
+
 
 @app.get("/test_ui", response_class=HTMLResponse)
 async def test_ui(request: Request) -> HTMLResponse:

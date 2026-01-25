@@ -382,6 +382,23 @@ class DashboardManager {
         // Adjust status text for compact display
         const compactStatusText = isMeeting ? 'Meeting' : statusText;
         
+        // Add manual confirm button for pending leads
+        let pendingActionsHtml = '';
+        if (isPending) {
+            pendingActionsHtml = `
+                <div class="pending-actions" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; display: flex; gap: 8px;">
+                    <button class="btn-confirm-lead" onclick="event.stopPropagation(); dashboardManagerInstance.manualConfirmLead('${business.id}')" 
+                        style="flex: 1; padding: 8px 12px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                        <i class="fas fa-check"></i> Confirm Lead
+                    </button>
+                    <button class="btn-check-email" onclick="event.stopPropagation(); dashboardManagerInstance.checkEmailsNow()" 
+                        style="padding: 8px 12px; background: #1976d2; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            `;
+        }
+        
         card.innerHTML = `
             <div class="business-header">
                 ${businessTitleHtml}
@@ -391,6 +408,7 @@ class DashboardManager {
                 ${business.city ? `<div class="detail"><i class="fas fa-map-marker-alt"></i><span>${this.escapeHtml(business.city)}</span></div>` : ''}
                 ${contactRowHtml}
                 ${compactNotesHtml}
+                ${pendingActionsHtml}
             </div>
         `;
         
@@ -400,12 +418,17 @@ class DashboardManager {
     getColumnForStatus(status) {
         const statusToAgent = {
             'found': 'lead_finder',
+            'sdr_processing': 'sdr',
+            'researched': 'sdr',
+            'sdr_engaged': 'sdr',
             'contacted': 'sdr',
             'engaged': 'sdr',
+            'pending': 'sdr',
             'not_interested': 'sdr',
             'no_response': 'sdr',
             'converting': 'lead_manager',
-        'meeting_scheduled': 'calendar'
+            'confirmed': 'lead_manager',
+            'meeting_scheduled': 'calendar'
         };
         
         const agentType = statusToAgent[status];
@@ -417,12 +440,17 @@ class DashboardManager {
     getAgentForStatus(status) {
         const statusToAgent = {
             'found': 'lead_finder',
+            'sdr_processing': 'sdr',
+            'researched': 'sdr',
+            'sdr_engaged': 'sdr',
             'contacted': 'sdr',
             'engaged': 'sdr',
+            'pending': 'sdr',
             'not_interested': 'sdr',
             'no_response': 'sdr',
             'converting': 'lead_manager',
-        'meeting_scheduled': 'calendar'
+            'confirmed': 'lead_manager',
+            'meeting_scheduled': 'calendar'
         };
         
         return statusToAgent[status] || 'unknown';
@@ -453,20 +481,20 @@ class DashboardManager {
         
         if (!totalElement) return;
         
-        let engaged = 0;
-        let converting = 0;
-        let meetings = 0;
+        // Count cards in each column directly for accurate counts
+        const leadFinderCards = document.querySelectorAll('#lead-finder-content .business-card').length;
+        const sdrCards = document.querySelectorAll('#sdr-content .business-card').length;
+        const leadManagerCards = document.querySelectorAll('#lead-manager-content .business-card').length;
+        const calendarCards = document.querySelectorAll('#meeting-scheduled-content .business-card').length;
         
-        this.businesses.forEach(business => {
-            if (business.status === 'engaged') engaged++;
-            if (business.status === 'converting') converting++;
-            if (business.status === 'meeting_scheduled') meetings++;
-        });
-        
+        // Total Leads = all businesses in the system
         this.animateCounter(totalElement, this.businesses.size);
-        this.animateCounter(engagedElement, engaged);
-        this.animateCounter(convertingElement, converting);
-        this.animateCounter(meetingsElement, meetings);
+        // Engaged = leads in SDR Agent column
+        this.animateCounter(engagedElement, sdrCards);
+        // Converting = leads in Lead Manager column
+        this.animateCounter(convertingElement, leadManagerCards);
+        // Meetings Scheduled = leads in Calendar column
+        this.animateCounter(meetingsElement, calendarCards);
     }
     
     animateCounter(element, targetValue) {
@@ -763,6 +791,9 @@ class DashboardManager {
             card.style.opacity = '1';
             card.style.transform = 'translateY(0)';
         });
+        
+        // Update stats immediately after adding to Lead Manager column
+        this.updateStats();
     }
     
     moveBusinessToSdrColumn(business, research, proposal) {
@@ -778,7 +809,7 @@ class DashboardManager {
         
         // Create SDR business card
         const card = document.createElement('div');
-        card.className = 'business-card compact sdr-processed';
+        card.className = 'business-card sdr-card compact';
         card.setAttribute('data-business-id', business.id);
         
         // Build the card HTML
@@ -790,7 +821,7 @@ class DashboardManager {
                 <div class="business-title">
                     <h4>${this.escapeHtml(business.name)}</h4>
                 </div>
-                <span class="status-badge status-engaged">Researched</span>
+                <span class="status-badge status-researched">Researched</span>
             </div>
             <div class="business-details">
                 <div class="detail">
@@ -816,10 +847,10 @@ class DashboardManager {
                 <button class="btn-small btn-view" onclick="event.stopPropagation(); dashboardManagerInstance.viewSdrResults('${business.id}')">
                     <i class="fas fa-eye"></i> View Research
                 </button>
-                <button class="btn-small btn-success" onclick="event.stopPropagation(); dashboardManagerInstance.showEmailDraftDialog(dashboardManagerInstance.businesses.get('${business.id}'))" style="background: #28a745; color: white;">
+                <button class="btn-small btn-success" onclick="event.stopPropagation(); dashboardManagerInstance.showEmailDraftDialog(dashboardManagerInstance.businesses.get('${business.id}'))">
                     <i class="fas fa-envelope"></i> Send Email
                 </button>
-                <button class="btn-small btn-website" onclick="event.stopPropagation(); dashboardManagerInstance.showWebsitePromptDialog('${business.id}')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <button class="btn-small btn-website" onclick="event.stopPropagation(); dashboardManagerInstance.showWebsitePromptDialog('${business.id}')">
                     <i class="fas fa-magic"></i> Create Website
                 </button>
             </div>
@@ -835,6 +866,9 @@ class DashboardManager {
         
         // Add to SDR column
         sdrContent.insertBefore(card, sdrContent.firstChild);
+        
+        // Update stats immediately after adding to SDR column
+        this.updateStats();
         
         // If original card exists in lead finder, mark it as processed
         if (existingCard) {
@@ -863,15 +897,15 @@ class DashboardManager {
             if (overlay) {
                 overlay.classList.remove('hidden');
                 
-                // Hide loading, show results
+                // Hide loading/error, show results
                 const loading = document.getElementById('research-loading');
-                const content = document.getElementById('research-content');
+                const resultsDiv = document.getElementById('research-results');
                 const error = document.getElementById('research-error');
                 
                 if (loading) loading.classList.add('hidden');
                 if (error) error.classList.add('hidden');
-                if (content) {
-                    content.classList.remove('hidden');
+                if (resultsDiv) {
+                    resultsDiv.classList.remove('hidden');
                     
                     // Display the research
                     if (business.research) {
@@ -1087,14 +1121,23 @@ class DashboardManager {
         const research = data.research;
         const businessInfo = data.business_info || {};
         
-        // Populate business info header
+        // Ensure loading/error are hidden and results are visible
+        const loadingDiv = document.getElementById('research-loading');
+        const resultsDiv = document.getElementById('research-results');
+        const errorDiv = document.getElementById('research-error');
+        
+        if (loadingDiv) loadingDiv.classList.add('hidden');
+        if (errorDiv) errorDiv.classList.add('hidden');
+        if (resultsDiv) resultsDiv.classList.remove('hidden');
+        
+        // Populate business info header with enhanced layout
         const infoHeader = document.getElementById('research-business-info');
         infoHeader.innerHTML = `
-            <h3><i class="fas fa-building"></i> ${this.escapeHtml(data.business_name)}</h3>
+            <h3><i class="fas fa-store"></i> ${this.escapeHtml(data.business_name)}</h3>
             <div class="meta">
                 ${businessInfo.city ? `<span class="meta-item"><i class="fas fa-map-marker-alt"></i> ${this.escapeHtml(businessInfo.city)}</span>` : ''}
                 ${businessInfo.phone ? `<span class="meta-item"><i class="fas fa-phone"></i> ${this.escapeHtml(businessInfo.phone)}</span>` : ''}
-                ${businessInfo.rating ? `<span class="meta-item"><i class="fas fa-star"></i> ${businessInfo.rating}/5 (${businessInfo.review_count || 0} reviews)</span>` : ''}
+                ${businessInfo.rating ? `<span class="meta-item rating"><i class="fas fa-star"></i> ${businessInfo.rating}/5 (${businessInfo.review_count || 0} reviews)</span>` : ''}
             </div>
         `;
         
@@ -1270,6 +1313,9 @@ class DashboardManager {
             
             if (result.success) {
                 console.log('Successfully processed by SDR:', result.message);
+                
+                // Update stats immediately when sent to SDR
+                this.updateStats();
                 
                 // Show the proposal in the research dialog if available
                 if (result.proposal) {
@@ -1656,6 +1702,48 @@ Phone: ${business.phone || 'N/A'}`;
                 
                 // Update card counts
                 this.updateColumnCounts();
+            } else {
+                this.showErrorToast(result.error || 'Failed to confirm lead');
+            }
+        } catch (error) {
+            console.error('Error confirming lead:', error);
+            this.showErrorToast('Failed to confirm lead. Please try again.');
+        }
+    }
+    
+    // Manual confirmation - quick confirm from pending card
+    async manualConfirmLead(businessId) {
+        const business = this.businesses.get(businessId);
+        if (!business) {
+            this.showErrorToast('Business not found');
+            return;
+        }
+        
+        try {
+            // Call the API to confirm the lead
+            const response = await fetch(`/confirm_lead/${businessId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showSuccessToast(`Lead "${business.name}" confirmed!`);
+                
+                // Update local business status
+                business.status = 'confirmed';
+                this.businesses.set(businessId, business);
+                
+                // Remove from SDR column
+                const sdrCard = document.querySelector(`.business-card[data-business-id="${businessId}"]`);
+                if (sdrCard) sdrCard.remove();
+                
+                // Move to Lead Manager column
+                this.moveBusinessToLeadManagerColumn(business);
+                
+                // Update stats
+                this.updateStats();
             } else {
                 this.showErrorToast(result.error || 'Failed to confirm lead');
             }
@@ -2730,6 +2818,8 @@ Please create a complete, production-ready website that ${businessName} can use 
             
             if (result.success) {
                 console.log('Successfully sent to SDR:', result.message);
+                // Update stats immediately
+                this.updateStats();
                 // Close the dialog on success - WebSocket will handle success message
                 this.closeSdrDialog();
             } else {

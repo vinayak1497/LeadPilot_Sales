@@ -162,36 +162,7 @@ class EmailReplyTracker:
                 if status != "OK":
                     continue
                 
-                for response_part in msg_data:
-                    if isinstance(response_part, tuple):
-                        msg = email.message_from_bytes(response_part[1])
-                        
-                        # Get email details
-                        subject = self._decode_header(msg["Subject"])
-                        from_addr = self._decode_header(msg["From"])
-                        body = self._get_email_body(msg)
-                        
-                        # Check if this is a reply to our proposal
-                        if self._is_proposal_reply(subject, body):
-                            logger.info(f"Found potential reply: '{subject}' from {from_addr}")
-                            
-                            # Find matching pending lead
-                            matched_lead = self._match_reply_to_lead(subject, body)
-                            
-                            if matched_lead:
-                                reference_code, lead_info = matched_lead
-                                
-                                # Determine response type
-                                response_type = self._analyze_response(body)
-                                
-                                if response_type == "positive":
-                                    logger.info(f"✅ Positive response detected for {lead_info['business_name']}")
-                                    await self._handle_confirmation(reference_code, lead_info, from_addr, body)
-                                elif response_type == "negative":
-                                    logger.info(f"❌ Negative response detected for {lead_info['business_name']}")
-                                    await self._handle_rejection(reference_code, lead_info, from_addr, body)
-                                else:
-                                    logger.info(f"⚠️ Unclear response for {lead_info['business_name']}")
+                await self._process_email_response(msg_data)
                 
                 # Mark as processed
                 self._processed_emails.add(email_id_str)
@@ -239,14 +210,26 @@ class EmailReplyTracker:
         
         return body
     
-    def _is_proposal_reply(self, subject: str, body: str) -> bool:
-        """Check if email is a reply to our proposal."""
+    def _is_proposal_reply(self, subject: str, body: str, from_addr: str = None) -> bool:
+        """Check if email is a reply to our proposal (not our original sent email)."""
         subject_lower = subject.lower() if subject else ""
         body_lower = body.lower() if body else ""
         
-        # Check for reply indicators
+        # IMPORTANT: Skip emails that are our original sent emails
+        # (they won't have "Re:" in subject and will be FROM our email address)
+        if from_addr:
+            from_lower = from_addr.lower()
+            # If email is FROM us and doesn't have "Re:" in subject, it's our original sent email
+            if self.email_address and self.email_address.lower() in from_lower:
+                if not subject_lower.startswith("re:"):
+                    return False
+        
+        # Must be a reply (has "Re:" in subject) to be considered
+        if not subject_lower.startswith("re:"):
+            return False
+        
+        # Check for proposal-related content
         is_reply = (
-            "re:" in subject_lower or
             "lead proposal" in subject_lower or
             "website" in body_lower or
             any(code.lower() in body_lower for code in self._pending_leads.keys())
@@ -332,6 +315,45 @@ class EmailReplyTracker:
         # Remove from pending leads
         if reference_code in self._pending_leads:
             del self._pending_leads[reference_code]
+    
+    async def _process_email_response(self, msg_data: List) -> None:
+        """Process email response data."""
+        for response_part in msg_data:
+            if not isinstance(response_part, tuple):
+                continue
+            
+            msg = email.message_from_bytes(response_part[1])
+            
+            # Get email details
+            subject = self._decode_header(msg["Subject"])
+            from_addr = self._decode_header(msg["From"])
+            body = self._get_email_body(msg)
+            
+            # Check if this is a reply to our proposal (pass from_addr to filter out our sent emails)
+            if not self._is_proposal_reply(subject, body, from_addr):
+                continue
+            
+            logger.info(f"Found reply email: '{subject}' from {from_addr}")
+            
+            # Find matching pending lead
+            matched_lead = self._match_reply_to_lead(subject, body)
+            
+            if not matched_lead:
+                continue
+            
+            reference_code, lead_info = matched_lead
+            
+            # Determine response type
+            response_type = self._analyze_response(body)
+            
+            if response_type == "positive":
+                logger.info(f"✅ Positive response detected for {lead_info['business_name']}")
+                await self._handle_confirmation(reference_code, lead_info, from_addr, body)
+            elif response_type == "negative":
+                logger.info(f"❌ Negative response detected for {lead_info['business_name']}")
+                await self._handle_rejection(reference_code, lead_info, from_addr, body)
+            else:
+                logger.info(f"⚠️ Unclear response for {lead_info['business_name']}")
     
     def force_check(self):
         """Force an immediate check for replies (useful for testing)."""

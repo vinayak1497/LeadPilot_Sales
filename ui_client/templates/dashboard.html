@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LeadPilot Dashboard - {{ current_city or "Lead Generation" }}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="/static/css/style.css" rel="stylesheet">
-    <link href="/static/css/dashboard.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="/static/css/dashboard.css?v=6" rel="stylesheet">
 </head>
 <body>
     <!-- Animated Background Particles -->
@@ -48,11 +48,13 @@
                     New Search
                 </button>
                 
-                <!-- Auth Button (Google Auth Integration) -->
-                <button onclick="window.location.href='/auth/login'" class="auth-btn">
-                    <i class="fas fa-user"></i>
-                    Login / Sign Up
-                </button>
+                <!-- Auth Container - dynamically updated by Clerk -->
+                <div id="auth-container">
+                    <button onclick="window.location.href='/auth/login'" class="auth-btn" id="auth-btn-login">
+                        <i class="fas fa-user"></i>
+                        Login / Sign Up
+                    </button>
+                </div>
                 
                 <!-- Debug button for testing human input dialog -->
                 <button onclick="testHumanInputDialog()" style="margin-left: 10px; padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
@@ -309,40 +311,6 @@
                 </div>
             </div>
 
-            <!-- AI Calling Agent Column -->
-            <div class="agent-column ai-calling-column" data-agent="ai_calling">
-                <div class="column-header">
-                    <div class="agent-icon">
-                        <i class="fas fa-phone-volume"></i>
-                    </div>
-                    <div class="agent-info">
-                        <h3>AI Calling Agent</h3>
-                        <p>Automated voice outreach</p>
-                    </div>
-                    <div class="agent-status" id="ai-calling-status">
-                        <div class="status-indicator idle"></div>
-                    </div>
-                </div>
-
-                <div class="column-content" id="ai-calling-content">
-                    <div class="ai-calling-info">
-                        <div class="info-box">
-                            <i class="fas fa-robot"></i>
-                            <h4>ElevenLabs AI Voice</h4>
-                            <p>Unlocks when prospect shows high interest</p>
-                        </div>
-                        <div class="unlock-criteria">
-                            <h5>Unlock Criteria:</h5>
-                            <ul>
-                                <li><i class="fas fa-check-circle"></i> Email response received</li>
-                                <li><i class="fas fa-check-circle"></i> Positive engagement detected</li>
-                                <li><i class="fas fa-check-circle"></i> More than basic "yes" reply</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
         </div>
 
         <!-- Activity Log -->
@@ -377,8 +345,16 @@
     <!-- Business Research Modal -->
     <div class="modal-overlay hidden" id="research-dialog-overlay" onclick="closeResearchDialog()">
         <div class="modal-dialog research-dialog" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h3><i class="fas fa-search"></i> Business Research</h3>
+            <div class="modal-header research-modal-header">
+                <div class="research-header-left">
+                    <div class="research-icon-badge">
+                        <i class="fas fa-brain"></i>
+                    </div>
+                    <div class="research-header-text">
+                        <h3>AI Business Research</h3>
+                        <span class="research-subtitle">Powered by intelligent analysis</span>
+                    </div>
+                </div>
                 <button class="modal-close" onclick="closeResearchDialog()">
                     <i class="fas fa-times"></i>
                 </button>
@@ -386,74 +362,117 @@
             <div class="modal-content research-content">
                 <!-- Loading State -->
                 <div id="research-loading" class="research-loading">
-                    <div class="spinner"></div>
-                    <p>Analyzing business with AI...</p>
+                    <div class="research-loading-animation">
+                        <div class="spinner"></div>
+                        <div class="loading-pulse"></div>
+                    </div>
+                    <p class="loading-text">Analyzing business with AI<span class="loading-dots"></span></p>
+                    <p class="loading-subtext">Gathering insights and recommendations</p>
                 </div>
                 
                 <!-- Research Results -->
                 <div id="research-results" class="research-results hidden">
-                    <div class="business-info-header" id="research-business-info">
+                    <!-- Business Header Card -->
+                    <div class="research-business-card" id="research-business-info">
                         <!-- Business info populated by JS -->
                     </div>
                     
-                    <div class="research-section">
-                        <h4><i class="fas fa-briefcase"></i> Business Overview</h4>
-                        <p id="research-overview"></p>
-                        <div class="research-tags">
-                            <span class="tag industry" id="research-industry"></span>
+                    <!-- Two Column Layout for Key Info -->
+                    <div class="research-grid">
+                        <!-- Left Column -->
+                        <div class="research-column">
+                            <div class="research-section research-section-overview">
+                                <div class="section-header">
+                                    <div class="section-icon"><i class="fas fa-briefcase"></i></div>
+                                    <h4>Business Overview</h4>
+                                </div>
+                                <p id="research-overview" class="research-text"></p>
+                                <div class="research-tags">
+                                    <span class="tag industry" id="research-industry"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="research-section">
+                                <div class="section-header">
+                                    <div class="section-icon"><i class="fas fa-users"></i></div>
+                                    <h4>Target Customers</h4>
+                                </div>
+                                <p id="research-target-customers" class="research-text"></p>
+                            </div>
+                            
+                            <div class="research-section">
+                                <div class="section-header">
+                                    <div class="section-icon"><i class="fas fa-concierge-bell"></i></div>
+                                    <h4>Services & Products</h4>
+                                </div>
+                                <ul id="research-services" class="research-list services-list"></ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Right Column -->
+                        <div class="research-column">
+                            <div class="research-section research-section-presence">
+                                <div class="section-header">
+                                    <div class="section-icon"><i class="fas fa-globe"></i></div>
+                                    <h4>Online Presence</h4>
+                                </div>
+                                <div class="presence-analysis" id="research-online-presence"></div>
+                            </div>
+                            
+                            <div class="research-section research-section-pain">
+                                <div class="section-header">
+                                    <div class="section-icon warning"><i class="fas fa-exclamation-triangle"></i></div>
+                                    <h4>Pain Points</h4>
+                                </div>
+                                <ul id="research-pain-points" class="research-list pain-list"></ul>
+                            </div>
+                            
+                            <div class="research-section research-section-benefits">
+                                <div class="section-header">
+                                    <div class="section-icon success"><i class="fas fa-check-circle"></i></div>
+                                    <h4>Website Benefits</h4>
+                                </div>
+                                <ul id="research-benefits" class="research-list benefits-list"></ul>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="research-section">
-                        <h4><i class="fas fa-users"></i> Target Customers</h4>
-                        <p id="research-target-customers"></p>
-                    </div>
-                    
-                    <div class="research-section">
-                        <h4><i class="fas fa-list"></i> Services/Products</h4>
-                        <ul id="research-services"></ul>
-                    </div>
-                    
-                    <div class="research-section">
-                        <h4><i class="fas fa-globe"></i> Online Presence Analysis</h4>
-                        <div class="presence-analysis" id="research-online-presence"></div>
-                    </div>
-                    
-                    <div class="research-section pain-points">
-                        <h4><i class="fas fa-exclamation-triangle"></i> Pain Points (No Website)</h4>
-                        <ul id="research-pain-points"></ul>
-                    </div>
-                    
-                    <div class="research-section benefits">
-                        <h4><i class="fas fa-check-circle"></i> Website Benefits</h4>
-                        <ul id="research-benefits"></ul>
-                    </div>
-                    
-                    <div class="research-section recommendation">
-                        <h4><i class="fas fa-lightbulb"></i> Recommendation</h4>
+                    <!-- Full Width Sections -->
+                    <div class="research-section research-section-recommendation">
+                        <div class="section-header">
+                            <div class="section-icon accent"><i class="fas fa-lightbulb"></i></div>
+                            <h4>AI Recommendation</h4>
+                        </div>
                         <div class="recommendation-box" id="research-recommendation"></div>
                     </div>
                     
-                    <div class="research-section conversation">
-                        <h4><i class="fas fa-comments"></i> Conversation Starters</h4>
-                        <ul id="research-conversation-starters"></ul>
+                    <div class="research-section research-section-conversation">
+                        <div class="section-header">
+                            <div class="section-icon"><i class="fas fa-comments"></i></div>
+                            <h4>Conversation Starters</h4>
+                        </div>
+                        <ul id="research-conversation-starters" class="research-list conversation-list"></ul>
                     </div>
                 </div>
                 
                 <!-- Error State -->
                 <div id="research-error" class="research-error hidden">
-                    <i class="fas fa-exclamation-circle"></i>
+                    <div class="error-icon">
+                        <i class="fas fa-exclamation-circle"></i>
+                    </div>
+                    <h4>Analysis Failed</h4>
                     <p id="research-error-message">An error occurred</p>
+                    <button class="btn-secondary" onclick="closeResearchDialog()">Close</button>
                 </div>
             </div>
-            <div class="modal-actions">
+            <div class="modal-actions research-modal-actions">
                 <button class="btn-secondary" onclick="closeResearchDialog()">
                     <i class="fas fa-times"></i>
                     Close
                 </button>
-                <button class="btn-primary" id="send-to-sdr-btn" onclick="sendToSdrDirect()">
-                    <i class="fas fa-robot"></i>
-                    Send to SDR Agent
+                <button class="btn-primary btn-sdr" id="send-to-sdr-btn" onclick="sendToSdrDirect()">
+                    <i class="fas fa-check"></i>
+                    SDR Complete
                 </button>
             </div>
         </div>
@@ -561,6 +580,94 @@
         </div>
     </div>
 
-    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/dashboard.js?v=6"></script>
+    
+    <!-- Clerk JavaScript SDK -->
+    <script
+        async
+        crossorigin="anonymous"
+        data-clerk-publishable-key="pk_test_ZGVjaWRpbmctcmVwdGlsZS00NS5jbGVyay5hY2NvdW50cy5kZXYk"
+        src="https://deciding-reptile-45.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+    
+    <script>
+        // Initialize Clerk authentication for dashboard
+        async function initClerkAuth() {
+            try {
+                if (!window.Clerk) {
+                    setTimeout(initClerkAuth, 100);
+                    return;
+                }
+                
+                await window.Clerk.load();
+                
+                const authContainer = document.getElementById('auth-container');
+                if (!authContainer) return;
+                
+                if (window.Clerk.user) {
+                    const user = window.Clerk.user;
+                    const name = user.firstName || user.emailAddresses[0]?.emailAddress.split('@')[0] || 'User';
+                    const email = user.emailAddresses[0]?.emailAddress || '';
+                    const avatar = user.imageUrl;
+                    const initials = name.charAt(0).toUpperCase();
+                    
+                    authContainer.innerHTML = `
+                        <div class="user-menu">
+                            <button class="user-btn" onclick="toggleUserMenu(event)">
+                                <div class="user-avatar">
+                                    ${avatar ? `<img src="${avatar}" alt="${name}">` : initials}
+                                </div>
+                                <span>${name}</span>
+                                <i class="fas fa-chevron-down" style="font-size: 10px;"></i>
+                            </button>
+                            <div class="user-dropdown" id="user-dropdown">
+                                <div class="user-info">
+                                    <div class="user-info-name">${name}</div>
+                                    <div class="user-info-email">${email}</div>
+                                </div>
+                                <button class="user-dropdown-item" onclick="window.Clerk.openUserProfile()">
+                                    <i class="fas fa-user-cog"></i>
+                                    Manage Account
+                                </button>
+                                <button class="user-dropdown-item logout" onclick="handleLogout()">
+                                    <i class="fas fa-sign-out-alt"></i>
+                                    Sign Out
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Clerk initialization error:', error);
+            }
+        }
+        
+        function toggleUserMenu(event) {
+            event.stopPropagation();
+            const dropdown = document.getElementById('user-dropdown');
+            if (dropdown) dropdown.classList.toggle('show');
+        }
+        
+        async function handleLogout() {
+            try {
+                await window.Clerk.signOut();
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/auth/logout';
+            }
+        }
+        
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.user-menu')) {
+                const dropdown = document.getElementById('user-dropdown');
+                if (dropdown) dropdown.classList.remove('show');
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', initClerkAuth);
+        window.addEventListener('load', () => setTimeout(initClerkAuth, 500));
+    </script>
 </body>
 </html>

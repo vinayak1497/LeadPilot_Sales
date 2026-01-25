@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - LeadPilot</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <style>
+        .auth-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .auth-card {
+            background: #ffffff;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 20px;
+            padding: 48px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(15, 23, 42, 0.04);
+            animation: modalFadeIn 0.3s ease-out;
+        }
+        
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.96) translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
+        .auth-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .auth-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .auth-logo i {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .auth-logo h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #0f172a, #334155);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0;
+        }
+        
+        .auth-subtitle {
+            color: #64748b;
+            font-size: 1rem;
+        }
+        
+        /* Clerk SignIn container styling */
+        #clerk-sign-in {
+            display: flex;
+            justify-content: center;
+        }
+        
+        /* Override Clerk's default styles for dark theme */
+        .cl-rootBox {
+            width: 100%;
+        }
+        
+        .cl-card {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+        
+        .auth-footer {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(226, 232, 240, 1);
+        }
+        
+        .auth-footer a {
+            color: #6366f1;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .auth-footer a:hover {
+            color: #8b5cf6;
+        }
+        
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #64748b;
+            text-decoration: none;
+            margin-bottom: 24px;
+            transition: color 0.2s;
+        }
+        
+        .back-link:hover {
+            color: #0f172a;
+        }
+        
+        .loading-auth {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        
+        .loading-auth i {
+            font-size: 2rem;
+            color: #6366f1;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background Particles -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+    
+    <div class="auth-container">
+        <div class="auth-card">
+            <a href="/" class="back-link">
+                <i class="fas fa-arrow-left"></i>
+                Back to Home
+            </a>
+            
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <i class="fas fa-rocket"></i>
+                    <h1>LeadPilot</h1>
+                </div>
+                <p class="auth-subtitle">Sign in to access your dashboard</p>
+            </div>
+            
+            <!-- Loading state -->
+            <div id="loading-state" class="loading-auth">
+                <i class="fas fa-circle-notch"></i>
+                <p>Loading authentication...</p>
+            </div>
+            
+            <!-- Clerk Sign In Component -->
+            <div id="clerk-sign-in"></div>
+            
+            <div class="auth-footer">
+                <p style="color: #64748b; font-size: 0.875rem;">
+                    Powered by <a href="https://clerk.com" target="_blank">Clerk</a>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Clerk JavaScript SDK -->
+    <script
+        async
+        crossorigin="anonymous"
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://deciding-reptile-45.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+        type="text/javascript"
+        onload="initClerk()"
+    ></script>
+    
+    <script>
+        async function initClerk() {
+            try {
+                // Wait for Clerk to be available
+                await window.Clerk.load();
+                
+                // Hide loading state
+                document.getElementById('loading-state').style.display = 'none';
+                
+                // Check if user is already signed in
+                if (window.Clerk.user) {
+                    // Redirect to dashboard
+                    window.location.href = '/';
+                    return;
+                }
+                
+                // Mount the sign-in component
+                const signInDiv = document.getElementById('clerk-sign-in');
+                window.Clerk.mountSignIn(signInDiv, {
+                    appearance: {
+                        baseTheme: undefined,
+                        variables: {
+                            colorPrimary: '#6366f1',
+                            colorBackground: '#ffffff',
+                            colorInputBackground: '#f8fafc',
+                            colorInputText: '#0f172a',
+                            colorText: '#0f172a',
+                            colorTextSecondary: '#64748b',
+                            borderRadius: '10px',
+                            fontSize: '15px',
+                            fontWeight: { normal: 400, medium: 500, semibold: 600, bold: 700 },
+                        },
+                        elements: {
+                            card: {
+                                backgroundColor: 'transparent',
+                                boxShadow: 'none',
+                                border: 'none',
+                            },
+                            headerTitle: {
+                                display: 'none',
+                            },
+                            headerSubtitle: {
+                                display: 'none',
+                            },
+                            socialButtonsBlockButton: {
+                                backgroundColor: '#ffffff',
+                                border: '1.5px solid #e2e8f0',
+                                color: '#0f172a',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                    backgroundColor: '#f8fafc',
+                                    borderColor: '#cbd5e1',
+                                    transform: 'translateY(-1px)',
+                                    boxShadow: '0 4px 12px rgba(15, 23, 42, 0.08)',
+                                },
+                                '&:focus': {
+                                    boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)',
+                                    borderColor: '#6366f1',
+                                },
+                            },
+                            socialButtonsBlockButtonText: {
+                                color: '#0f172a',
+                                fontWeight: 500,
+                            },
+                            formFieldInput: {
+                                backgroundColor: '#f8fafc',
+                                border: '1.5px solid #e2e8f0',
+                                color: '#0f172a',
+                                fontSize: '14px',
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                    backgroundColor: '#ffffff',
+                                    borderColor: '#cbd5e1',
+                                },
+                                '&:focus': {
+                                    backgroundColor: '#ffffff',
+                                    borderColor: '#6366f1',
+                                    boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)',
+                                },
+                            },
+                            formFieldLabel: {
+                                color: '#0f172a',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                            },
+                            formButtonPrimary: {
+                                background: 'linear-gradient(135deg, #6366f1 0%, #7c3aed 100%)',
+                                border: 'none',
+                                fontSize: '15px',
+                                fontWeight: 600,
+                                padding: '12px',
+                                transition: 'all 0.2s ease',
+                                '&:hover': {
+                                    background: 'linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%)',
+                                    transform: 'translateY(-1px)',
+                                    boxShadow: '0 8px 20px rgba(99, 102, 241, 0.3)',
+                                },
+                                '&:active': {
+                                    transform: 'translateY(0)',
+                                },
+                            },
+                            footerActionLink: {
+                                color: '#6366f1',
+                                fontWeight: 500,
+                                '&:hover': {
+                                    color: '#4f46e5',
+                                },
+                            },
+                            dividerLine: {
+                                backgroundColor: '#e2e8f0',
+                            },
+                            dividerText: {
+                                color: '#64748b',
+                                fontSize: '13px',
+                                fontWeight: 500,
+                            },
+                            identityPreviewText: {
+                                color: '#0f172a',
+                            },
+                            identityPreviewEditButton: {
+                                color: '#6366f1',
+                            },
+                        },
+                    },
+                    afterSignInUrl: '/',
+                    afterSignUpUrl: '/',
+                    signUpUrl: '/auth/signup',
+                });
+                
+            } catch (error) {
+                console.error('Failed to initialize Clerk:', error);
+                document.getElementById('loading-state').innerHTML = `
+                    <i class="fas fa-exclamation-triangle" style="color: #ef4444; animation: none;"></i>
+                    <p style="color: #ef4444;">Failed to load authentication. Please refresh.</p>
+                `;
+            }
+        }
+        
+        // Fallback initialization if onload doesn't fire
+        window.addEventListener('load', function() {
+            if (window.Clerk && !window.Clerk.user) {
+                setTimeout(initClerk, 1000);
+            }
+        });
+    </script>
+</body>
+</html>
