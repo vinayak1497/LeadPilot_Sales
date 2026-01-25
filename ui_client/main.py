@@ -95,6 +95,19 @@ except ImportError as e:
     )
     logger.warning(f"Auth module not available, auth disabled: {e}")
 
+# Import BigQuery persistence service
+try:
+    from .bigquery_service import (
+        get_bigquery_service, persist_sdr_engaged, 
+        persist_lead_converting, persist_meeting_scheduled,
+        LeadStatus
+    )
+    BIGQUERY_AVAILABLE = True
+    logger.info("BigQuery persistence service loaded")
+except ImportError as e:
+    BIGQUERY_AVAILABLE = False
+    logger.warning(f"BigQuery service not available: {e}")
+
 # Ensure imports work
 try:
     import common.config
@@ -1295,6 +1308,59 @@ async def get_businesses():
         "total": len(app_state["businesses"])
     }
 
+@app.get("/api/leads/history")
+async def get_leads_history(request: Request, status: Optional[str] = None):
+    """
+    API endpoint to get persisted lead history from BigQuery.
+    Returns leads for the current authenticated user.
+    """
+    if not BIGQUERY_AVAILABLE:
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "error": "BigQuery service not available"}
+        )
+    
+    try:
+        # Get current user
+        user_id = "anonymous"
+        if AUTH_AVAILABLE:
+            user = await get_current_user(request)
+            if user:
+                user_id = user.get("sub", "anonymous")
+        
+        # Query BigQuery
+        bq_service = get_bigquery_service()
+        if not bq_service.is_available():
+            return JSONResponse(
+                status_code=503,
+                content={"success": False, "error": "BigQuery client not initialized"}
+            )
+        
+        # Convert status string to enum if provided
+        status_filter = None
+        if status:
+            try:
+                status_filter = LeadStatus(status.upper())
+            except ValueError:
+                pass
+        
+        leads = await bq_service.get_leads_by_user(user_id, status_filter)
+        
+        return {
+            "success": True,
+            "user_id": user_id,
+            "leads": leads,
+            "total": len(leads),
+            "status_filter": status
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch lead history: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
 @app.get("/api/status")
 async def get_status():
     """API endpoint to get current application status."""
@@ -1307,6 +1373,7 @@ async def get_status():
 
 @app.post("/send_to_sdr")
 async def send_business_to_sdr(
+    request: Request,
     business_id: str = Form(...), 
     user_phone: Optional[str] = Form(None)
 ):
@@ -1424,6 +1491,25 @@ async def send_business_to_sdr(
         })
         
         logger.info(f"SDR Agent successfully processed {business.name}")
+        
+        # Persist to BigQuery if available
+        if BIGQUERY_AVAILABLE and AUTH_AVAILABLE:
+            try:
+                user = await get_current_user(request)
+                user_info = {
+                    "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                    "email": user.get("email") if user else None,
+                    "name": user.get("name") if user else None,
+                }
+                await persist_sdr_engaged(
+                    lead_id=business_id,
+                    user_info=user_info,
+                    lead_details=business_data,
+                    research_data=research_data,
+                )
+                logger.info(f"✅ Lead {business.name} persisted to BigQuery (SDR_ENGAGED)")
+            except Exception as bq_error:
+                logger.warning(f"BigQuery persistence failed (non-blocking): {bq_error}")
         
         return JSONResponse(
             status_code=200,
@@ -1773,6 +1859,7 @@ async def health_check():
 
 @app.post("/send_email")
 async def send_email_endpoint(
+    request: Request,
     business_id: str = Form(...),
     recipient_email: str = Form(...),
     subject: str = Form(...),
@@ -1830,6 +1917,36 @@ async def send_email_endpoint(
                 "message": f"Email sent to {recipient_email}",
                 "timestamp": datetime.now().isoformat(),
             })
+            
+            # Persist email event to BigQuery
+            if BIGQUERY_AVAILABLE and AUTH_AVAILABLE:
+                try:
+                    user = await get_current_user(request)
+                    user_info = {
+                        "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                        "email": user.get("email") if user else None,
+                        "name": user.get("name") if user else None,
+                    }
+                    # Get research data if available
+                    research_data = None
+                    if "sdr_results" in app_state and business_id in app_state["sdr_results"]:
+                        research_data = app_state["sdr_results"][business_id].get("research")
+                    
+                    email_details = {
+                        "sent_at": datetime.now().isoformat() + "Z",
+                        "subject": subject,
+                        "recipient": recipient_email,
+                    }
+                    
+                    await persist_sdr_engaged(
+                        lead_id=business_id,
+                        user_info=user_info,
+                        lead_details=business.model_dump(),
+                        research_data=research_data,
+                    )
+                    logger.info(f"✅ Email event for {business.name} persisted to BigQuery")
+                except Exception as bq_error:
+                    logger.warning(f"BigQuery persistence failed (non-blocking): {bq_error}")
         
         return JSONResponse(
             status_code=200,
@@ -2025,6 +2142,30 @@ async def confirm_lead(business_id: str, request: Request):
             },
             "timestamp": datetime.now().isoformat(),
         })
+        
+        # Persist to BigQuery as CONVERTING status
+        if BIGQUERY_AVAILABLE and AUTH_AVAILABLE:
+            try:
+                user = await get_current_user(request)
+                user_info = {
+                    "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                    "email": user.get("email") if user else None,
+                    "name": user.get("name") if user else None,
+                }
+                # Get research data if available
+                research_data = None
+                if "sdr_results" in app_state and business_id in app_state["sdr_results"]:
+                    research_data = app_state["sdr_results"][business_id].get("research")
+                
+                await persist_lead_converting(
+                    lead_id=business_id,
+                    user_info=user_info,
+                    lead_details=business.model_dump(),
+                    research_data=research_data,
+                )
+                logger.info(f"✅ Lead {business.name} persisted to BigQuery (CONVERTING)")
+            except Exception as bq_error:
+                logger.warning(f"BigQuery persistence failed (non-blocking): {bq_error}")
         
         # For POST requests (from dashboard), return JSON
         if request.method == "POST":
