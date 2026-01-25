@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>UI Test - SalesShortcut</title>
+    <style>
+        body { font-family: Arial; padding: 50px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; }
+        .status { background: rgba(255,255,255,0.2); padding: 30px; border-radius: 20px; margin: 20px auto; max-width: 600px; }
+        .success { color: #10b981; font-size: 24px; font-weight: bold; }
+        .particle { position: absolute; width: 3px; height: 3px; background: rgba(255,255,255,0.5); border-radius: 50%; animation: float 10s infinite; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-50px); } }
+    </style>
+</head>
+<body>
+    <div class="particle" style="left: 20%; top: 20%;"></div>
+    <div class="particle" style="left: 80%; top: 30%;"></div>
+    <div class="particle" style="left: 50%; top: 60%;"></div>
+    <h1>🎨 UI UPDATE TEST PAGE</h1>
+    <div class="status">
+        <p class="success">✓ NEW UI IS ACTIVE!</p>
+        <p>Server Time: 2026-01-25 20:33:45</p>
+        <p>If you can see this page with animated particles and gradient background, the new UI is working!</p>
+        <hr style="margin: 20px 0; border: 1px solid rgba(255,255,255,0.3);">
+        <a href="/" style="color: #fbbf24; font-size: 20px; text-decoration: none; font-weight: bold;">→ Go to Main Page</a>
+    </div>
+</body>
+</html>

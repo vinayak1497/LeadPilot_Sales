@@ -2992,8 +2992,31 @@ function copyPromptToClipboard() {
 }
 
 function openFirebaseStudio() {
-    // Open Firebase Studio in a new tab
-    window.open('https://studio.firebase.google.com/', '_blank');
+    // Get the prompt from the dialog
+    const promptTextarea = document.getElementById('human-input-prompt');
+    if (!promptTextarea) {
+        // If no prompt available, just open Google IDX
+        window.open('https://idx.google.com/new/gemini', '_blank');
+        showToast('Opening Google IDX...', 'success');
+        return;
+    }
+    
+    const prompt = promptTextarea.value.trim();
+    if (!prompt) {
+        // If prompt is empty, open without prompt
+        window.open('https://idx.google.com/new/gemini', '_blank');
+        showToast('Opening Google IDX...', 'success');
+        return;
+    }
+    
+    // Encode the prompt for URL
+    const encodedPrompt = encodeURIComponent(prompt);
+    
+    // Open Google IDX with the prompt
+    const idxUrl = `https://idx.google.com/new/gemini?prompt=${encodedPrompt}`;
+    window.open(idxUrl, '_blank');
+    
+    showToast('Opening Google IDX with website creation prompt...', 'success');
 }
 
 async function submitWebsiteUrl() {

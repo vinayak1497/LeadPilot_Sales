@@ -3,19 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SalesShortcut Dashboard - {{ current_city or "Lead Generation" }}</title>
+    <title>LeadPilot Dashboard - {{ current_city or "Lead Generation" }}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="/static/css/style.css" rel="stylesheet">
     <link href="/static/css/dashboard.css" rel="stylesheet">
 </head>
 <body>
+    <!-- Animated Background Particles -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+    
     <div class="dashboard-container">
         <!-- Header -->
         <div class="dashboard-header">
             <div class="header-left">
                 <div class="logo">
                     <i class="fas fa-rocket"></i>
-                    <h1>SalesShortcut</h1>
+                    <h1>LeadPilot</h1>
                 </div>
                 {% if current_city %}
                 <div class="current-target">
@@ -34,6 +46,12 @@
                 <button onclick="resetDashboard()" class="reset-btn">
                     <i class="fas fa-refresh"></i>
                     New Search
+                </button>
+                
+                <!-- Auth Button (Google Auth Integration) -->
+                <button onclick="window.location.href='/auth/login'" class="auth-btn">
+                    <i class="fas fa-user"></i>
+                    Login / Sign Up
                 </button>
                 
                 <!-- Debug button for testing human input dialog -->
@@ -291,6 +309,40 @@
                 </div>
             </div>
 
+            <!-- AI Calling Agent Column -->
+            <div class="agent-column ai-calling-column" data-agent="ai_calling">
+                <div class="column-header">
+                    <div class="agent-icon">
+                        <i class="fas fa-phone-volume"></i>
+                    </div>
+                    <div class="agent-info">
+                        <h3>AI Calling Agent</h3>
+                        <p>Automated voice outreach</p>
+                    </div>
+                    <div class="agent-status" id="ai-calling-status">
+                        <div class="status-indicator idle"></div>
+                    </div>
+                </div>
+
+                <div class="column-content" id="ai-calling-content">
+                    <div class="ai-calling-info">
+                        <div class="info-box">
+                            <i class="fas fa-robot"></i>
+                            <h4>ElevenLabs AI Voice</h4>
+                            <p>Unlocks when prospect shows high interest</p>
+                        </div>
+                        <div class="unlock-criteria">
+                            <h5>Unlock Criteria:</h5>
+                            <ul>
+                                <li><i class="fas fa-check-circle"></i> Email response received</li>
+                                <li><i class="fas fa-check-circle"></i> Positive engagement detected</li>
+                                <li><i class="fas fa-check-circle"></i> More than basic "yes" reply</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- Activity Log -->
@@ -452,27 +504,43 @@
     <div class="modal-overlay hidden" id="human-input-dialog-overlay" onclick="closeHumanInputDialog()">
         <div class="modal-dialog human-input-dialog" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h3><i class="fas fa-globe"></i> SDR Agent Requesting Website Creation</h3>
+                <h3><i class="fas fa-globe"></i> Automated Website Creation via Google IDX</h3>
                 <button class="modal-close" onclick="closeHumanInputDialog()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-content">
                 <div class="human-input-message">
-                    <p><strong>SDR agent requesting website creation</strong></p>
+                    <div class="auto-creation-info">
+                        <div class="info-icon">
+                            <i class="fas fa-magic"></i>
+                        </div>
+                        <p class="info-title">Our AI is creating a custom website automatically!</p>
+                        <p class="info-description">The SDR agent has generated a tailored website prompt and is submitting it to Google IDX for automatic website creation.</p>
+                    </div>
+                    
                     <div class="prompt-container">
                         <div class="prompt-header">
-                            <span class="prompt-label">Website creation prompt:</span>
+                            <span class="prompt-label">
+                                <i class="fas fa-code"></i>
+                                Website Creation Prompt:
+                            </span>
                             <button class="copy-prompt-btn" onclick="copyPromptToClipboard()" title="Copy prompt to clipboard">
                                 <i class="fas fa-copy"></i>
+                                Copy
                             </button>
                         </div>
                         <textarea id="human-input-prompt" readonly class="prompt-display"></textarea>
                     </div>
+                    
                     <div class="redirect-section">
+                        <p class="redirect-info">
+                            <i class="fas fa-info-circle"></i>
+                            Want to see the website being created? Open Google IDX with this prompt:
+                        </p>
                         <button class="btn-redirect" onclick="openFirebaseStudio()">
                             <i class="fas fa-external-link-alt"></i>
-                            Firebase Studio
+                            Open in Google IDX
                         </button>
                     </div>
                 </div>
@@ -480,10 +548,10 @@
             <div class="modal-actions">
                 <button class="btn-secondary" onclick="closeHumanInputDialog()">
                     <i class="fas fa-times"></i>
-                    Cancel
+                    Cancel Process
                 </button>
                 <div class="url-input-container">
-                    <input type="url" id="website-url-input" placeholder="Enter website URL here..." class="url-input">
+                    <input type="url" id="website-url-input" placeholder="Or manually enter website URL..." class="url-input">
                     <button class="btn-primary" id="submit-website-url-btn" onclick="submitWebsiteUrl()">
                         <i class="fas fa-check"></i>
                         Submit URL

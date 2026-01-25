@@ -1100,7 +1100,7 @@ async def read_root(request: Request) -> HTMLResponse:
     """Serves the main page - either input form or dashboard."""
     if app_state["is_running"] or app_state["businesses"]:
         # Show dashboard if we have data or process is running
-        return templates.TemplateResponse(
+        response = templates.TemplateResponse(
             name="dashboard.html",
             context={
                 "request": request,  # Correct: 'request' is now inside the context
@@ -1112,12 +1112,18 @@ async def read_root(request: Request) -> HTMLResponse:
         )
     else:
         # Show input form
-        return templates.TemplateResponse(
+        response = templates.TemplateResponse(
             name="index.html",
             context={
                 "request": request  # Correct: 'request' is now inside the context
             }
         )
+    
+    # Add cache control headers to force refresh
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.get("/architecture_diagram", response_class=HTMLResponse)
 async def architecture_diagram(request: Request) -> HTMLResponse:
@@ -1128,6 +1134,20 @@ async def architecture_diagram(request: Request) -> HTMLResponse:
             "request": request
         }
     )
+
+@app.get("/test_ui", response_class=HTMLResponse)
+async def test_ui(request: Request) -> HTMLResponse:
+    """Test page to verify UI update."""
+    response = templates.TemplateResponse(
+        name="test_ui.html",
+        context={
+            "request": request
+        }
+    )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
         
         
 @app.post("/start_lead_finding")

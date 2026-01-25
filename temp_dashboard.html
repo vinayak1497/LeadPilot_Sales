@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeadPilot Dashboard - Thane</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Animated Background Particles -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+    
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="dashboard-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-rocket"></i>
+                    <h1>LeadPilot</h1>
+                </div>
+                
+                <div class="current-target">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>Thane</span>
+                </div>
+                
+            </div>
+            
+            <div class="header-right">
+                <div class="status-indicator">
+                    <div class="status-light idle"></div>
+                    <span>Ready</span>
+                </div>
+                
+                <button onclick="resetDashboard()" class="reset-btn">
+                    <i class="fas fa-refresh"></i>
+                    New Search
+                </button>
+                
+                <!-- Debug button for testing human input dialog -->
+                <button onclick="testHumanInputDialog()" style="margin-left: 10px; padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px;">
+                    <i class="fas fa-globe"></i>
+                    Test Human Input
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Overview -->
+        <div class="stats-bar">
+            <div class="stat-item">
+                <div class="stat-value" id="total-businesses">20</div>
+                <div class="stat-label">Total Leads</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="engaged-count">0</div>
+                <div class="stat-label">Engaged</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="converting-count">0</div>
+                <div class="stat-label">Converting</div>
+            </div>
+            <div class="stat-item hot">
+                <div class="stat-value" id="meetings-count">0</div>
+                <div class="stat-label">Meetings Scheduled</div>
+            </div>
+        </div>
+
+        <!-- Agent Columns -->
+        <div class="agent-columns">
+            <!-- Lead Finder Column -->
+            <div class="agent-column" data-agent="lead_finder">
+                <div class="column-header">
+                    <div class="agent-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <div class="agent-info">
+                        <h3>Lead Finder</h3>
+                        <p>Discovering potential businesses</p>
+                    </div>
+                    <div class="agent-status" id="lead-finder-status">
+                        <div class="status-indicator idle"></div>
+                    </div>
+                </div>
+                
+                <div class="column-content" id="lead-finder-content">
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJ17MLVzy55zsRos_t5zqR2fQ">
+                            <div class="business-header">
+                                <h4>Hotel Ratna Palace Residency</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJc9HL_Da_5zsR9hspi1U2mrs">
+                            <div class="business-header">
+                                <h4>Mango Hotels - Airoli, Navi Mumbai</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJM_OqTR655zsRumHNuCw_8lU">
+                            <div class="business-header">
+                                <h4>The Shelter Family Dining Bar</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJoQV1aBq55zsRNP51HJE9S0s">
+                            <div class="business-header">
+                                <h4>Barbeque Nation</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJFeGdIie55zsROjn0b4fgbMI">
+                            <div class="business-header">
+                                <h4>Hotel Alka Residency | The Budget Business Hotel</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJpTFVGf645zsRsN0cbdGiC78">
+                            <div class="business-header">
+                                <h4>Urban Tadka R Mall Mulund</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJVVVVVVa45zsRCbgX0LcDRGU">
+                            <div class="business-header">
+                                <h4>Monginis Cake Shop</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJz6ToGBS55zsRFANqfb7G6Kk">
+                            <div class="business-header">
+                                <h4>Subway Korum</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJ_aIiaR255zsRcfEB80JvjKU">
+                            <div class="business-header">
+                                <h4>Grand Thali Restaurant</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJocBFEqO75zsRAvIDtl35nsM">
+                            <div class="business-header">
+                                <h4>McDonald&#39;s</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJgdqLW1a45zsRVUfa35Ij5no">
+                            <div class="business-header">
+                                <h4>Woodland Retreat</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJgSv90vu45zsRp3DAa93-EPs">
+                            <div class="business-header">
+                                <h4>Kirti Mahal Veg Restaurant Mulund</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJxU3O7FS_5zsRM3EtCrnRmUI">
+                            <div class="business-header">
+                                <h4>GURUPRASAD SNACKS CORNER</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJAQAAQyS55zsRTXWT_jPiI1I">
+                            <div class="business-header">
+                                <h4>Hotel Vaishali Pure Veg</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJLbkoFV655zsRDtq0jP6inTM">
+                            <div class="business-header">
+                                <h4>D’Crêpes Cafe</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJVVVVVVa45zsR075kwIDSens">
+                            <div class="business-header">
+                                <h4>Amantran Casual Dining</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJ_____9K-5zsRHDCtKjR7Du0">
+                            <div class="business-header">
+                                <h4>Hotel Sarovar KALWA</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJk49WJ0S55zsRdTsilRwYFgY">
+                            <div class="business-header">
+                                <h4>Culinary Co. Kitchen &amp; Bar | Thane</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJddw-OL--5zsRXBDB1uLGueE">
+                            <div class="business-header">
+                                <h4>Monginis Cake Shop</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                        
+                        <div class="business-card compact" data-business-id="ChIJASVFRSe55zsReSFymmxDGEg">
+                            <div class="business-header">
+                                <h4>Regency Family Restaurant &amp; Bar</h4>
+                                <span class="status-badge status-found">Found</span>
+                            </div>
+                            <div class="business-details">
+                                <div class="detail">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <span>Thane</span>
+                                </div>
+                                <div class="contact-row">
+                                    
+                                    
+                                </div>
+                            </div>
+                        </div>
+                        
+                    
+                </div>
+            </div>
+
+            <!-- SDR Agent Column -->
+            <div class="agent-column" data-agent="sdr">
+                <div class="column-header">
+                    <div class="agent-icon">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                    <div class="agent-info">
+                        <h3>SDR Agent</h3>
+                        <p>Engaging and qualifying prospects</p>
+                    </div>
+                    <div class="agent-status" id="sdr-status">
+                        <div class="status-indicator idle"></div>
+                    </div>
+                </div>
+                
+                <!-- Email Tracking Controls -->
+                <div class="email-tracking-bar" style="padding: 8px 12px; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-bottom: 1px solid #90caf9; display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-envelope-open-text" style="color: #1976d2;"></i>
+                        <span id="email-tracking-status" style="font-size: 12px; color: #1565c0;">Email tracking active</span>
+                    </div>
+                    <button onclick="dashboardManagerInstance.checkEmailsNow()" 
+                            style="padding: 5px 12px; font-size: 11px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px;"
+                            title="Force check inbox for replies">
+                        <i class="fas fa-sync-alt"></i> Check Replies
+                    </button>
+                </div>
+                
+                <div class="column-content" id="sdr-content">
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                </div>
+            </div>
+
+            <!-- Lead Manager Column -->
+            <div class="agent-column" data-agent="lead_manager">
+                <div class="column-header" onclick="triggerLeadManager()" style="cursor: pointer;">
+                    <div class="agent-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="agent-info">
+                        <h3>Lead Manager</h3>
+                        <p>Converting to hot leads</p>
+                    </div>
+                    <div class="agent-status" id="lead-manager-status">
+                        <div class="status-indicator idle"></div>
+                    </div>
+                </div>
+                
+                <div class="column-content" id="lead-manager-content">
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                </div>
+            </div>
+
+            <!-- Calendar Agent Column -->
+            <div class="agent-column calendar-column" data-agent="calendar">
+                <div class="column-header">
+                    <div class="agent-icon">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div class="agent-info">
+                        <h3>Calendar</h3>
+                        <p>Scheduled meetings</p>
+                    </div>
+                    <div class="agent-status" id="calendar-status">
+                        <div class="status-indicator idle"></div>
+                    </div>
+                </div>
+
+                <div class="column-content" id="meeting-scheduled-content">
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                        
+                    
+                </div>
+            </div>
+
+            <!-- AI Calling Agent Column -->
+            <div class="agent-column ai-calling-column" data-agent="ai_calling">
+                <div class="column-header">
+                    <div class="agent-icon">
+                        <i class="fas fa-phone-volume"></i>
+                    </div>
+                    <div class="agent-info">
+                        <h3>AI Calling Agent</h3>
+                        <p>Automated voice outreach</p>
+                    </div>
+                    <div class="agent-status" id="ai-calling-status">
+                        <div class="status-indicator idle"></div>
+                    </div>
+                </div>
+
+                <div class="column-content" id="ai-calling-content">
+                    <div class="ai-calling-info">
+                        <div class="info-box">
+                            <i class="fas fa-robot"></i>
+                            <h4>ElevenLabs AI Voice</h4>
+                            <p>Unlocks when prospect shows high interest</p>
+                        </div>
+                        <div class="unlock-criteria">
+                            <h5>Unlock Criteria:</h5>
+                            <ul>
+                                <li><i class="fas fa-check-circle"></i> Email response received</li>
+                                <li><i class="fas fa-check-circle"></i> Positive engagement detected</li>
+                                <li><i class="fas fa-check-circle"></i> More than basic "yes" reply</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Activity Log -->
+        <div class="activity-log">
+            <div class="log-header">
+                <h3><i class="fas fa-history"></i> Recent Activity</h3>
+                <button onclick="toggleLog()" class="toggle-log">
+                    <i class="fas fa-chevron-up"></i>
+                </button>
+            </div>
+            <div class="log-content" id="activity-log">
+                
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay" style="display: none;">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h3>Processing leads...</h3>
+            <p>Our AI agents are working hard to find and qualify your prospects.</p>
+        </div>
+    </div>
+
+    <!-- Business Research Modal -->
+    <div class="modal-overlay hidden" id="research-dialog-overlay" onclick="closeResearchDialog()">
+        <div class="modal-dialog research-dialog" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fas fa-search"></i> Business Research</h3>
+                <button class="modal-close" onclick="closeResearchDialog()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content research-content">
+                <!-- Loading State -->
+                <div id="research-loading" class="research-loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing business with AI...</p>
+                </div>
+                
+                <!-- Research Results -->
+                <div id="research-results" class="research-results hidden">
+                    <div class="business-info-header" id="research-business-info">
+                        <!-- Business info populated by JS -->
+                    </div>
+                    
+                    <div class="research-section">
+                        <h4><i class="fas fa-briefcase"></i> Business Overview</h4>
+                        <p id="research-overview"></p>
+                        <div class="research-tags">
+                            <span class="tag industry" id="research-industry"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="research-section">
+                        <h4><i class="fas fa-users"></i> Target Customers</h4>
+                        <p id="research-target-customers"></p>
+                    </div>
+                    
+                    <div class="research-section">
+                        <h4><i class="fas fa-list"></i> Services/Products</h4>
+                        <ul id="research-services"></ul>
+                    </div>
+                    
+                    <div class="research-section">
+                        <h4><i class="fas fa-globe"></i> Online Presence Analysis</h4>
+                        <div class="presence-analysis" id="research-online-presence"></div>
+                    </div>
+                    
+                    <div class="research-section pain-points">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Pain Points (No Website)</h4>
+                        <ul id="research-pain-points"></ul>
+                    </div>
+                    
+                    <div class="research-section benefits">
+                        <h4><i class="fas fa-check-circle"></i> Website Benefits</h4>
+                        <ul id="research-benefits"></ul>
+                    </div>
+                    
+                    <div class="research-section recommendation">
+                        <h4><i class="fas fa-lightbulb"></i> Recommendation</h4>
+                        <div class="recommendation-box" id="research-recommendation"></div>
+                    </div>
+                    
+                    <div class="research-section conversation">
+                        <h4><i class="fas fa-comments"></i> Conversation Starters</h4>
+                        <ul id="research-conversation-starters"></ul>
+                    </div>
+                </div>
+                
+                <!-- Error State -->
+                <div id="research-error" class="research-error hidden">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p id="research-error-message">An error occurred</p>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeResearchDialog()">
+                    <i class="fas fa-times"></i>
+                    Close
+                </button>
+                <button class="btn-primary" id="send-to-sdr-btn" onclick="sendToSdrDirect()">
+                    <i class="fas fa-robot"></i>
+                    Send to SDR Agent
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SDR Dialog (hidden - kept for backwards compatibility) -->
+    <div class="modal-overlay hidden" id="sdr-dialog-overlay" onclick="closeSdrDialog()">
+        <div class="modal-dialog" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-tie"></i> Send to SDR Agent</h3>
+                <button class="modal-close" onclick="closeSdrDialog()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content">
+                <div class="business-preview" id="business-preview">
+                    <!-- Business details will be populated here -->
+                </div>
+                <div class="modal-message">
+                    <p>Do you want to send this lead to the SDR agent for engagement and qualification?</p>
+                    <p class="modal-subtitle">The SDR agent will:</p>
+                    <ul>
+                        <li>Contact the business via phone or email</li>
+                        <li>Qualify the lead based on your criteria</li>
+                        <li>Update you on the engagement status</li>
+                    </ul>
+                </div>
+                <div class="phone-input-section">
+                    <label for="sdr-phone-input">Phone Number <span class="required-mark">*</span></label>
+                    <p class="field-description">Enter the phone number where you want to be reached for the call. This will override the business's phone number for outreach.</p>
+                    <div class="phone-input-wrapper">
+                        <input type="tel" id="sdr-phone-input" placeholder="(555) 123-4567" required>
+                        <span id="phone-validation-icon"></span>
+                    </div>
+                    <div id="phone-validation-status" class="validation-status"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-primary" id="confirm-sdr-btn" onclick="confirmSendToSdr()" disabled>
+                    <i class="fas fa-paper-plane"></i>
+                    Enter Phone Number
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Human Input Dialog -->
+    <div class="modal-overlay hidden" id="human-input-dialog-overlay" onclick="closeHumanInputDialog()">
+        <div class="modal-dialog human-input-dialog" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3><i class="fas fa-globe"></i> Automated Website Creation via Google IDX</h3>
+                <button class="modal-close" onclick="closeHumanInputDialog()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-content">
+                <div class="human-input-message">
+                    <div class="auto-creation-info">
+                        <div class="info-icon">
+                            <i class="fas fa-magic"></i>
+                        </div>
+                        <p class="info-title">Our AI is creating a custom website automatically!</p>
+                        <p class="info-description">The SDR agent has generated a tailored website prompt and is submitting it to Google IDX for automatic website creation.</p>
+                    </div>
+                    
+                    <div class="prompt-container">
+                        <div class="prompt-header">
+                            <span class="prompt-label">
+                                <i class="fas fa-code"></i>
+                                Website Creation Prompt:
+                            </span>
+                            <button class="copy-prompt-btn" onclick="copyPromptToClipboard()" title="Copy prompt to clipboard">
+                                <i class="fas fa-copy"></i>
+                                Copy
+                            </button>
+                        </div>
+                        <textarea id="human-input-prompt" readonly class="prompt-display"></textarea>
+                    </div>
+                    
+                    <div class="redirect-section">
+                        <p class="redirect-info">
+                            <i class="fas fa-info-circle"></i>
+                            Want to see the website being created? Open Google IDX with this prompt:
+                        </p>
+                        <button class="btn-redirect" onclick="openFirebaseStudio()">
+                            <i class="fas fa-external-link-alt"></i>
+                            Open in Google IDX
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeHumanInputDialog()">
+                    <i class="fas fa-times"></i>
+                    Cancel Process
+                </button>
+                <div class="url-input-container">
+                    <input type="url" id="website-url-input" placeholder="Or manually enter website URL..." class="url-input">
+                    <button class="btn-primary" id="submit-website-url-btn" onclick="submitWebsiteUrl()">
+                        <i class="fas fa-check"></i>
+                        Submit URL
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
