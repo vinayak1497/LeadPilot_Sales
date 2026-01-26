@@ -108,6 +108,15 @@ except ImportError as e:
     BIGQUERY_AVAILABLE = False
     logger.warning(f"BigQuery service not available: {e}")
 
+# Import calendar utilities for meeting scheduling
+try:
+    from lead_manager.lead_manager.tools.calendar_utils import create_meeting_with_lead
+    CALENDAR_UTILS_AVAILABLE = True
+    logger.info("Calendar utilities loaded for meeting scheduling")
+except ImportError as e:
+    CALENDAR_UTILS_AVAILABLE = False
+    logger.warning(f"Calendar utilities not available: {e}")
+
 # Ensure imports work
 try:
     import common.config
@@ -190,6 +199,16 @@ class HumanInputRequest(BaseModel):
 class HumanInputResponse(BaseModel):
     request_id: str
     response: str
+
+class ScheduleMeetingRequest(BaseModel):
+    """Request model for scheduling a meeting with a lead."""
+    business_id: str = Field(..., description="The ID of the business to schedule a meeting with")
+    title: str = Field(..., description="Meeting title")
+    date: str = Field(..., description="Meeting date in YYYY-MM-DD format")
+    time: str = Field(..., description="Meeting time in HH:MM format")
+    duration: int = Field(default=30, description="Meeting duration in minutes")
+    attendee_email: Optional[str] = Field(None, description="Optional attendee email")
+    description: Optional[str] = Field(None, description="Meeting description/agenda")
 
 # Global application state
 app_state = {
@@ -2266,6 +2285,160 @@ async def debug_static():
         static_files_info["static_files"] = "Directory does not exist"
     
     return static_files_info
+
+
+# ===== Meeting Scheduling Endpoints =====
+
+@app.post("/schedule_meeting")
+async def schedule_meeting(request: ScheduleMeetingRequest, req: Request):
+    """
+    Schedule a meeting with a lead using Google Calendar.
+    Creates a real Google Calendar event with Google Meet link.
+    Moves the lead from Lead Manager to Calendar column.
+    """
+    logger.info(f"Scheduling meeting for business: {request.business_id}")
+    
+    # Get the business
+    business = app_state["businesses"].get(request.business_id)
+    if not business:
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "error": "Business not found"}
+        )
+    
+    # Check if calendar utilities are available
+    if not CALENDAR_UTILS_AVAILABLE:
+        logger.warning("Calendar utilities not available, using fallback method")
+        # Fallback: return info for manual calendar creation
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "fallback": True,
+                "message": "Calendar API not available. Please create meeting manually.",
+                "meeting_info": {
+                    "title": request.title,
+                    "date": request.date,
+                    "time": request.time,
+                    "duration": request.duration,
+                    "attendee": request.attendee_email,
+                    "description": request.description
+                }
+            }
+        )
+    
+    try:
+        # Create the meeting using calendar utilities
+        meeting_result = await create_meeting_with_lead(
+            lead_name=business.name,
+            lead_email=request.attendee_email or business.email or "",
+            meeting_subject=request.title,
+            description=request.description or f"Meeting with {business.name} - Scheduled via LeadPilot",
+            duration_minutes=request.duration,
+            preferred_date=request.date,
+            preferred_time=request.time
+        )
+        
+        if not meeting_result.get("success"):
+            logger.error(f"Failed to create meeting: {meeting_result.get('error')}")
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "error": meeting_result.get("error", "Failed to create meeting"),
+                    "message": meeting_result.get("message", "Unknown error occurred")
+                }
+            )
+        
+        # Meeting created successfully
+        meet_link = meeting_result.get("meet_link", "")
+        calendar_link = meeting_result.get("calendar_link", "")
+        
+        logger.info(f"Meeting created successfully: {meeting_result.get('meeting_id')}")
+        logger.info(f"Meet link: {meet_link}")
+        
+        # Update business status to meeting_scheduled
+        business.status = BusinessStatus.MEETING_SCHEDULED
+        business.updated_at = datetime.now()
+        business.notes.append(f"Meeting scheduled: {request.title} on {request.date} at {request.time}")
+        if meet_link:
+            business.notes.append(f"Google Meet: {meet_link}")
+        
+        # Prepare meeting data for WebSocket
+        meeting_data = {
+            "meeting_id": meeting_result.get("meeting_id"),
+            "title": request.title,
+            "date": request.date,
+            "time": request.time,
+            "duration": request.duration,
+            "meet_link": meet_link,
+            "calendar_link": calendar_link,
+            "attendee": request.attendee_email or business.email,
+            "start_datetime": f"{request.date}T{request.time}:00",
+            "end_datetime": meeting_result.get("end_time"),
+            "description": request.description
+        }
+        
+        # Send business update via WebSocket (moves card to Calendar column)
+        await manager.send_update({
+            "type": "business_updated",
+            "agent": "calendar",
+            "business": business.model_dump(),
+            "update": {
+                "status": "meeting_scheduled",
+                "message": f"Meeting scheduled: {request.title}",
+                "meeting_data": meeting_data
+            },
+            "timestamp": datetime.now().isoformat(),
+        })
+        
+        # Send calendar notification with meeting details
+        await manager.send_update({
+            "type": "meeting_scheduled",
+            "agent": "calendar",
+            "business_id": request.business_id,
+            "business_name": business.name,
+            "meeting": meeting_data,
+            "timestamp": datetime.now().isoformat(),
+        })
+        
+        # Persist to BigQuery if available
+        if BIGQUERY_AVAILABLE:
+            try:
+                user_info = {}
+                try:
+                    if AUTH_AVAILABLE:
+                        user_info = await get_current_user(req)
+                except:
+                    pass
+                
+                persist_meeting_scheduled(
+                    business=business.model_dump(),
+                    user_info=user_info,
+                    meeting_data=meeting_data
+                )
+            except Exception as e:
+                logger.warning(f"BigQuery persistence failed: {e}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": f"Meeting scheduled successfully with {business.name}",
+                "meeting": meeting_data
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error scheduling meeting: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "error": str(e),
+                "message": f"Failed to schedule meeting: {str(e)}"
+            }
+        )
 
 
 # ===== Email Tracking Endpoints =====

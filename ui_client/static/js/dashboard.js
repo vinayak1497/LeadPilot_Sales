@@ -132,6 +132,9 @@ class DashboardManager {
             case 'calendar_notification':
                 this.handleCalendarNotification(data);
                 break;
+            case 'meeting_scheduled':
+                this.handleMeetingScheduled(data);
+                break;
             default:
                 console.log('Unknown message type:', data.type);
         }
@@ -1062,6 +1065,63 @@ class DashboardManager {
             </div>
         `;
         container.appendChild(card);
+    }
+    
+    /**
+     * Handle meeting scheduled event from WebSocket
+     * This is triggered when a meeting is created via the backend API
+     */
+    handleMeetingScheduled(data) {
+        console.log('Meeting scheduled event received:', data);
+        
+        const businessId = data.business_id;
+        const businessName = data.business_name;
+        const meeting = data.meeting || {};
+        
+        // Get business from local state or create minimal one
+        let business = this.businesses.get(businessId);
+        if (business) {
+            business.status = 'meeting_scheduled';
+            this.businesses.set(businessId, business);
+        } else {
+            business = { id: businessId, name: businessName, status: 'meeting_scheduled' };
+        }
+        
+        // Create meeting info from the event data
+        const meetingInfo = {
+            businessId: businessId,
+            businessName: businessName,
+            title: meeting.title || `Meeting with ${businessName}`,
+            date: meeting.date || new Date().toISOString().split('T')[0],
+            time: meeting.time || '10:00',
+            duration: meeting.duration || 30,
+            attendee: meeting.attendee || '',
+            description: meeting.description || '',
+            meet_link: meeting.meet_link || '',
+            calendar_link: meeting.calendar_link || '',
+            meeting_id: meeting.meeting_id || '',
+            createdAt: data.timestamp || new Date().toISOString(),
+            status: 'scheduled'
+        };
+        
+        // Store meeting info
+        if (!this.scheduledMeetings) {
+            this.scheduledMeetings = new Map();
+        }
+        this.scheduledMeetings.set(businessId, meetingInfo);
+        
+        // Move to calendar column
+        this.moveBusinessToCalendarColumn(business, meetingInfo);
+        
+        // Show success toast
+        if (meetingInfo.meet_link) {
+            this.showSuccessToast(`Meeting scheduled with ${businessName}! Meet link ready.`);
+        } else {
+            this.showSuccessToast(`Meeting scheduled with ${businessName}!`);
+        }
+        
+        // Add activity log
+        this.addActivityLogEntry('calendar', `Meeting scheduled: ${meetingInfo.title}`, data.timestamp);
     }
     
     // ===== Research Dialog Methods =====
@@ -2253,7 +2313,7 @@ Please create a complete, production-ready website that ${businessName} can use 
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
     
-    createGoogleMeeting() {
+    async createGoogleMeeting() {
         const title = document.getElementById('meeting-title')?.value.trim();
         const date = document.getElementById('meeting-date')?.value;
         const time = document.getElementById('meeting-time')?.value;
@@ -2266,11 +2326,101 @@ Please create a complete, production-ready website that ${businessName} can use 
             return;
         }
         
-        // Create start and end date-time
+        // Show loading state on button
+        const submitBtn = document.querySelector('#schedule-meeting-overlay button[onclick*="createGoogleMeeting"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Meeting...';
+        }
+        
+        try {
+            // Call the backend API to create the meeting
+            const response = await fetch('/schedule_meeting', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    business_id: this.currentMeetingBusiness.id,
+                    title: title,
+                    date: date,
+                    time: time,
+                    duration: duration,
+                    attendee_email: attendee,
+                    description: description
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Meeting created successfully via API
+                const meetingInfo = {
+                    businessId: this.currentMeetingBusiness.id,
+                    businessName: this.currentMeetingBusiness.name,
+                    title: title,
+                    date: date,
+                    time: time,
+                    duration: duration,
+                    attendee: attendee,
+                    description: description,
+                    meet_link: data.meeting?.meet_link || '',
+                    calendar_link: data.meeting?.calendar_link || '',
+                    meeting_id: data.meeting?.meeting_id || '',
+                    createdAt: new Date().toISOString(),
+                    status: 'scheduled'
+                };
+                
+                // Add to scheduled meetings storage
+                if (!this.scheduledMeetings) {
+                    this.scheduledMeetings = new Map();
+                }
+                this.scheduledMeetings.set(this.currentMeetingBusiness.id, meetingInfo);
+                
+                // Update business status in local state
+                const business = this.businesses.get(this.currentMeetingBusiness.id);
+                if (business) {
+                    business.status = 'meeting_scheduled';
+                    this.businesses.set(business.id, business);
+                }
+                
+                // Move to Calendar column with meet link
+                this.moveBusinessToCalendarColumn(this.currentMeetingBusiness, meetingInfo);
+                
+                // Show success toast with link
+                if (meetingInfo.meet_link) {
+                    this.showSuccessToast(`Meeting scheduled! Meet link: ${meetingInfo.meet_link.substring(0, 30)}...`);
+                } else {
+                    this.showSuccessToast(`Meeting scheduled successfully with ${this.currentMeetingBusiness.name}!`);
+                }
+                
+                // Update stats
+                this.updateStats();
+                
+                // Close the dialog
+                this.closeScheduleMeetingDialog();
+            } else if (data.fallback) {
+                // Fallback to manual calendar creation
+                this.createGoogleMeetingFallback(title, date, time, duration, attendee, description);
+            } else {
+                this.showErrorToast(data.error || 'Failed to create meeting');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-video"></i> Create Meeting & Add to Calendar';
+                }
+            }
+        } catch (error) {
+            console.error('Error scheduling meeting:', error);
+            // Fallback to manual calendar creation
+            this.createGoogleMeetingFallback(title, date, time, duration, attendee, description);
+        }
+    }
+    
+    createGoogleMeetingFallback(title, date, time, duration, attendee, description) {
+        // Fallback: Create Google Calendar URL manually
         const startDateTime = new Date(`${date}T${time}:00`);
         const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
         
-        // Format dates for Google Calendar URL (YYYYMMDDTHHMMSS)
         const formatGoogleDate = (d) => {
             return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
         };
@@ -2278,23 +2428,18 @@ Please create a complete, production-ready website that ${businessName} can use 
         const startStr = formatGoogleDate(startDateTime);
         const endStr = formatGoogleDate(endDateTime);
         
-        // Build Google Calendar URL with conferencing (Google Meet)
         let calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE`;
         calendarUrl += `&text=${encodeURIComponent(title)}`;
         calendarUrl += `&dates=${startStr}/${endStr}`;
-        calendarUrl += `&details=${encodeURIComponent(description + '\\n\\n---\\nMeeting scheduled via SalesShortcut')}`;
+        calendarUrl += `&details=${encodeURIComponent(description + '\\n\\n---\\nMeeting scheduled via LeadPilot')}`;
         
         if (attendee) {
             calendarUrl += `&add=${encodeURIComponent(attendee)}`;
         }
-        
-        // Request conference data (Google Meet) - Note: This works with Google Workspace
         calendarUrl += `&conf=1`;
         
-        // Open Google Calendar in new tab
         window.open(calendarUrl, '_blank');
         
-        // Store meeting info for the Calendar column
         const meetingInfo = {
             businessId: this.currentMeetingBusiness.id,
             businessName: this.currentMeetingBusiness.name,
@@ -2304,22 +2449,19 @@ Please create a complete, production-ready website that ${businessName} can use 
             duration: duration,
             attendee: attendee,
             description: description,
+            meet_link: '',
+            calendar_link: '',
             createdAt: new Date().toISOString(),
             status: 'scheduled'
         };
         
-        // Add to scheduled meetings storage
         if (!this.scheduledMeetings) {
             this.scheduledMeetings = new Map();
         }
         this.scheduledMeetings.set(this.currentMeetingBusiness.id, meetingInfo);
         
-        // Move to Calendar column
         this.moveBusinessToCalendarColumn(this.currentMeetingBusiness, meetingInfo);
-        
-        this.showSuccessToast('Opening Google Calendar to create meeting... Don\'t forget to save the event!');
-        
-        // Close the dialog
+        this.showSuccessToast('Opening Google Calendar... Don\'t forget to save the event!');
         this.closeScheduleMeetingDialog();
     }
     
@@ -2333,44 +2475,12 @@ Please create a complete, production-ready website that ${businessName} can use 
     }
     
     moveBusinessToCalendarColumn(business, meetingInfo) {
-        // First, check if Calendar column exists, if not create it
-        let calendarColumn = document.getElementById('calendar-column');
-        
-        if (!calendarColumn) {
-            // Create Calendar column after Lead Manager column
-            const leadManagerColumn = document.querySelector('.kanban-column:nth-child(4)'); // Lead Manager is 4th
-            if (leadManagerColumn) {
-                const calendarColumnHtml = `
-                    <div class="kanban-column" id="calendar-column">
-                        <div class="column-header" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);">
-                            <div class="column-title">
-                                <i class="fas fa-calendar-check" style="margin-right: 8px;"></i>
-                                <span>Scheduled Meetings</span>
-                            </div>
-                            <span class="column-count" id="calendar-count">0</span>
-                        </div>
-                        <div class="column-content" id="calendar-content">
-                            <div class="column-placeholder" id="calendar-placeholder">
-                                <i class="fas fa-calendar-alt"></i>
-                                <p>Scheduled meetings will appear here</p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                leadManagerColumn.insertAdjacentHTML('afterend', calendarColumnHtml);
-                calendarColumn = document.getElementById('calendar-column');
-            }
-        }
-        
-        const calendarContent = document.getElementById('calendar-content');
+        // Use the existing Calendar column (meeting-scheduled-content)
+        const calendarContent = document.getElementById('meeting-scheduled-content');
         if (!calendarContent) {
-            console.error('Calendar content column not found');
+            console.error('Calendar content column not found (id="meeting-scheduled-content")');
             return;
         }
-        
-        // Hide placeholder
-        const placeholder = document.getElementById('calendar-placeholder');
-        if (placeholder) placeholder.style.display = 'none';
         
         // Remove from Lead Manager column if present
         const existingCard = document.querySelector(`#lead-manager-content .business-card[data-business-id="${business.id}"]`);
@@ -2378,12 +2488,19 @@ Please create a complete, production-ready website that ${businessName} can use 
             existingCard.remove();
         }
         
+        // Also remove from any other column
+        const anyExistingCard = document.querySelector(`.business-card[data-business-id="${business.id}"]`);
+        if (anyExistingCard) {
+            anyExistingCard.remove();
+        }
+        
         // Format meeting date and time
         const meetingDate = new Date(`${meetingInfo.date}T${meetingInfo.time}`);
         const formattedDate = meetingDate.toLocaleDateString('en-US', { 
             weekday: 'short', 
             month: 'short', 
-            day: 'numeric' 
+            day: 'numeric',
+            year: 'numeric'
         });
         const formattedTime = meetingDate.toLocaleTimeString('en-US', { 
             hour: '2-digit', 
@@ -2391,60 +2508,108 @@ Please create a complete, production-ready website that ${businessName} can use 
             hour12: true 
         });
         
-        // Create Calendar meeting card
-        const card = document.createElement('div');
-        card.className = 'business-card compact meeting-scheduled';
-        card.setAttribute('data-business-id', business.id);
+        // Save meet link for later use
+        if (meetingInfo.meet_link) {
+            if (!this.savedMeetLinks) {
+                this.savedMeetLinks = new Map();
+            }
+            this.savedMeetLinks.set(business.id, meetingInfo.meet_link);
+        }
         
-        card.innerHTML = `
-            <div class="business-header">
-                <div class="business-title">
-                    <h4>${this.escapeHtml(business.name)}</h4>
+        // Create Calendar meeting card with professional styling
+        const card = document.createElement('div');
+        card.className = 'business-card compact meeting-card scheduled-meeting-card';
+        card.setAttribute('data-business-id', business.id);
+        card.setAttribute('data-meet-link', meetingInfo.meet_link || '');
+        
+        // Build Meet link section (only if we have a real link)
+        const meetLinkSection = meetingInfo.meet_link ? `
+            <div class="meet-link-section" style="margin-top: 12px; padding: 12px; background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); border-radius: 8px; border: 1px solid #a5d6a7;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                    <span style="font-size: 12px; font-weight: 600; color: #2e7d32; display: flex; align-items: center; gap: 6px;">
+                        <i class="fab fa-google" style="font-size: 14px;"></i> Google Meet Ready
+                    </span>
+                    <span style="font-size: 10px; color: #388e3c; background: white; padding: 2px 8px; border-radius: 10px;">
+                        <i class="fas fa-check-circle"></i> Auto-generated
+                    </span>
                 </div>
-                <span class="status-badge" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white;">
-                    <i class="fas fa-video" style="margin-right: 4px;"></i> Meeting
-                </span>
-            </div>
-            <div class="meeting-details" style="margin-top: 10px;">
-                <div class="detail" style="color: #ea4335; font-weight: 600;">
-                    <i class="fas fa-calendar"></i>
-                    <span>${formattedDate}</span>
-                </div>
-                <div class="detail" style="color: #4285f4; font-weight: 600;">
-                    <i class="fas fa-clock"></i>
-                    <span>${formattedTime} (${meetingInfo.duration} min)</span>
-                </div>
-                <div class="detail" style="margin-top: 5px; font-size: 13px; color: #666;">
-                    <i class="fas fa-heading"></i>
-                    <span>${this.escapeHtml(meetingInfo.title)}</span>
-                </div>
-            </div>
-            <div class="calendar-actions" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0; display: flex; gap: 8px;">
-                <button class="btn-small" onclick="event.stopPropagation(); dashboardManagerInstance.openGoogleCalendar()" 
-                    style="flex: 1; padding: 8px 12px; background: #4285f4; color: white; border: none; border-radius: 6px; 
-                           cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                    <i class="fas fa-external-link-alt"></i> Open Calendar
-                </button>
-                <button class="btn-small" onclick="event.stopPropagation(); dashboardManagerInstance.copyMeetLink('${business.id}')" 
-                    style="flex: 1; padding: 8px 12px; background: #34a853; color: white; border: none; border-radius: 6px; 
-                           cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                    <i class="fas fa-copy"></i> Copy Meet Link
-                </button>
-            </div>
-            <div id="meet-link-${business.id}" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
-                <label style="font-size: 11px; color: #666; display: block; margin-bottom: 5px;">
-                    <i class="fab fa-google"></i> Google Meet Link:
-                </label>
-                <div style="display: flex; gap: 5px;">
-                    <input type="text" id="meet-link-input-${business.id}" 
-                        placeholder="Paste your Meet link here..." 
-                        style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
-                    <button onclick="event.stopPropagation(); dashboardManagerInstance.saveMeetLink('${business.id}')"
-                        style="padding: 8px 12px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                        <i class="fas fa-save"></i>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="event.stopPropagation(); dashboardManagerInstance.joinMeeting('${business.id}')" 
+                        style="flex: 2; padding: 10px 16px; background: linear-gradient(135deg, #34a853 0%, #1e8e3e 100%); color: white; 
+                               border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+                               display: flex; align-items: center; justify-content: center; gap: 6px;
+                               box-shadow: 0 2px 8px rgba(52, 168, 83, 0.3); transition: all 0.2s ease;">
+                        <i class="fas fa-video"></i> Join Meeting
+                    </button>
+                    <button onclick="event.stopPropagation(); dashboardManagerInstance.copyMeetLinkDirect('${business.id}')" 
+                        style="flex: 1; padding: 10px 12px; background: white; color: #34a853; 
+                               border: 2px solid #34a853; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
+                               display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s ease;"
+                        title="Copy Meet link to clipboard">
+                        <i class="fas fa-copy"></i> Copy
                     </button>
                 </div>
             </div>
+        ` : `
+            <div class="meet-link-section" style="margin-top: 12px; padding: 12px; background: #fff8e1; border-radius: 8px; border: 1px dashed #ffb74d;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <i class="fas fa-info-circle" style="color: #f57c00;"></i>
+                    <span style="font-size: 12px; color: #e65100;">Meet link will be in your Google Calendar event</span>
+                </div>
+                <button onclick="event.stopPropagation(); window.open('https://calendar.google.com', '_blank')" 
+                    style="width: 100%; padding: 10px 16px; background: linear-gradient(135deg, #4285f4 0%, #1a73e8 100%); color: white; 
+                           border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600;
+                           display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i class="fas fa-external-link-alt"></i> Open Google Calendar
+                </button>
+            </div>
+        `;
+        
+        // Attendee info section
+        const attendeeSection = meetingInfo.attendee ? `
+            <div class="detail" style="margin-top: 8px;">
+                <i class="fas fa-user" style="color: #9c27b0;"></i>
+                <span style="font-size: 12px; color: #666;">${this.escapeHtml(meetingInfo.attendee)}</span>
+            </div>
+        ` : '';
+        
+        card.innerHTML = `
+            <div class="business-header" style="margin-bottom: 12px;">
+                <div class="business-title" style="display: flex; align-items: center; gap: 8px;">
+                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); 
+                                border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-handshake" style="color: white; font-size: 16px;"></i>
+                    </div>
+                    <h4 style="margin: 0; font-size: 15px; font-weight: 600; color: #1a1a2e;">${this.escapeHtml(business.name)}</h4>
+                </div>
+                <span class="status-badge" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                    <i class="fas fa-calendar-check" style="margin-right: 4px;"></i> Scheduled
+                </span>
+            </div>
+            
+            <div class="meeting-info" style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin-bottom: 4px;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-calendar-alt" style="color: #ea4335; font-size: 14px;"></i>
+                        <span style="font-weight: 600; color: #333; font-size: 13px;">${formattedDate}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <i class="fas fa-clock" style="color: #4285f4; font-size: 14px;"></i>
+                        <span style="font-weight: 600; color: #333; font-size: 13px;">${formattedTime}</span>
+                    </div>
+                </div>
+                <div class="detail" style="margin-bottom: 4px;">
+                    <i class="fas fa-hourglass-half" style="color: #fbbc05;"></i>
+                    <span style="font-size: 12px; color: #666;">${meetingInfo.duration} minutes</span>
+                </div>
+                <div class="detail">
+                    <i class="fas fa-tag" style="color: #9c27b0;"></i>
+                    <span style="font-size: 12px; color: #666;">${this.escapeHtml(meetingInfo.title)}</span>
+                </div>
+                ${attendeeSection}
+            </div>
+            
+            ${meetLinkSection}
         `;
         
         // Add to Calendar column with animation
@@ -2459,9 +2624,40 @@ Please create a complete, production-ready website that ${businessName} can use 
             card.style.transform = 'translateY(0)';
         });
         
-        // Update counts
-        this.updateColumnCount('calendar-count', calendarContent.querySelectorAll('.business-card').length);
-        this.updateLeadManagerCount();
+        // Update stats
+        this.updateStats();
+        
+        // Add activity log entry
+        this.addActivityLogEntry('calendar', `Meeting scheduled with ${business.name} for ${formattedDate} at ${formattedTime}`, new Date().toISOString());
+    }
+    
+    joinMeeting(businessId) {
+        const meetLink = this.savedMeetLinks?.get(businessId);
+        if (meetLink) {
+            window.open(meetLink, '_blank');
+        } else {
+            this.showErrorToast('Meet link not available');
+        }
+    }
+    
+    copyMeetLinkDirect(businessId) {
+        const meetLink = this.savedMeetLinks?.get(businessId);
+        if (meetLink) {
+            navigator.clipboard.writeText(meetLink).then(() => {
+                this.showSuccessToast('Meet link copied to clipboard!');
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = meetLink;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                this.showSuccessToast('Meet link copied!');
+            });
+        } else {
+            this.showErrorToast('Meet link not available');
+        }
     }
     
     openGoogleCalendar() {
