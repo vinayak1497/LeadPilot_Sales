@@ -312,12 +312,87 @@ async def handle_email_rejection(lead_info: dict):
             "timestamp": datetime.now().isoformat(),
         })
 
+
+def setup_google_credentials():
+    """
+    Setup Google Cloud credentials for Railway deployment.
+    Supports base64-encoded credentials via GOOGLE_CREDENTIALS_BASE64 env var.
+    """
+    import base64
+    import tempfile
+    
+    # Check if credentials are provided as base64 (for Railway/cloud deployment)
+    creds_base64 = os.environ.get("GOOGLE_CREDENTIALS_BASE64")
+    if creds_base64:
+        try:
+            # Decode base64 credentials
+            creds_json = base64.b64decode(creds_base64).decode("utf-8")
+            
+            # Write to a temporary file
+            creds_file = tempfile.NamedTemporaryFile(
+                mode="w", 
+                suffix=".json", 
+                delete=False,
+                prefix="gcp_creds_"
+            )
+            creds_file.write(creds_json)
+            creds_file.close()
+            
+            # Set the environment variable
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds_file.name
+            logger.info(f"✅ Google credentials loaded from GOOGLE_CREDENTIALS_BASE64")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to decode GOOGLE_CREDENTIALS_BASE64: {e}")
+            return False
+    
+    # Check for existing credentials file
+    existing_creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    if existing_creds and os.path.exists(existing_creds):
+        logger.info(f"✅ Using existing Google credentials: {existing_creds}")
+        return True
+    
+    # Check for local .secrets directory
+    local_creds_paths = [
+        ".secrets/leadpilot-gdg-ae42d1864e6a.json",
+        ".secrets/gcp-credentials.json",
+        "credentials.json"
+    ]
+    for path in local_creds_paths:
+        if os.path.exists(path):
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = path
+            logger.info(f"✅ Using local Google credentials: {path}")
+            return True
+    
+    logger.warning("⚠️ No Google credentials found - BigQuery persistence may not work")
+    return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Handles application startup and shutdown events."""
     global email_tracker_instance
     
-    logger.info("UI Client starting up...")
+    logger.info("=" * 60)
+    logger.info("🚀 LeadPilot UI Client starting up...")
+    logger.info(f"   Environment: {'Railway' if os.environ.get('RAILWAY_ENVIRONMENT') else 'Local'}")
+    logger.info(f"   Port: {os.environ.get('PORT', '8000')}")
+    logger.info("=" * 60)
+    
+    # Setup Google Cloud credentials (Railway support)
+    setup_google_credentials()
+    
+    # Initialize BigQuery service
+    if BIGQUERY_AVAILABLE:
+        try:
+            from .bigquery_service import get_bigquery_service
+            bq_service = get_bigquery_service()
+            if bq_service.is_available():
+                logger.info("✅ BigQuery service initialized successfully")
+            else:
+                logger.warning("⚠️ BigQuery service not available")
+        except Exception as e:
+            logger.warning(f"⚠️ BigQuery initialization failed: {e}")
     
     # Initialize and start email reply tracker
     if EMAIL_TRACKER_AVAILABLE:
@@ -331,13 +406,16 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"Failed to start email tracker: {e}")
     
+    logger.info("✅ LeadPilot UI Client ready!")
+    logger.info("=" * 60)
+    
     yield
     
     # Cleanup
     if email_tracker_instance:
         await email_tracker_instance.stop()
     
-    logger.info("UI Client shutting down...")
+    logger.info("👋 LeadPilot UI Client shutting down...")
 
 app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory=str(templates_dir))
@@ -1511,24 +1589,36 @@ async def send_business_to_sdr(
         
         logger.info(f"SDR Agent successfully processed {business.name}")
         
-        # Persist to BigQuery if available
-        if BIGQUERY_AVAILABLE and AUTH_AVAILABLE:
+        # Persist to BigQuery if available - SDR engaged is first lifecycle stage
+        if BIGQUERY_AVAILABLE:
             try:
-                user = await get_current_user(request)
-                user_info = {
-                    "user_id": user.get("sub", "anonymous") if user else "anonymous",
-                    "email": user.get("email") if user else None,
-                    "name": user.get("name") if user else None,
-                }
-                await persist_sdr_engaged(
+                user_info = {}
+                if AUTH_AVAILABLE:
+                    try:
+                        user = await get_current_user(request)
+                        user_info = {
+                            "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                            "email": user.get("email") if user else None,
+                            "name": user.get("name") if user else None,
+                        }
+                    except Exception as auth_err:
+                        logger.warning(f"Could not get user for BigQuery: {auth_err}")
+                
+                bq_result = await persist_sdr_engaged(
                     lead_id=business_id,
                     user_info=user_info,
                     lead_details=business_data,
                     research_data=research_data,
                 )
-                logger.info(f"✅ Lead {business.name} persisted to BigQuery (SDR_ENGAGED)")
+                
+                if bq_result.get("success"):
+                    logger.info(f"✅ Lead {business.name} persisted to BigQuery (SDR_ENGAGED)")
+                elif not bq_result.get("skipped"):
+                    logger.error(f"❌ BigQuery SDR_ENGAGED failed: {bq_result.get('error')}")
             except Exception as bq_error:
-                logger.warning(f"BigQuery persistence failed (non-blocking): {bq_error}")
+                logger.error(f"❌ BigQuery persistence exception: {bq_error}", exc_info=True)
+        else:
+            logger.info("⏭️ BigQuery not available, SDR engagement not persisted")
         
         return JSONResponse(
             status_code=200,
@@ -1862,19 +1952,46 @@ async def submit_human_input_response(request_id: str, response: HumanInputRespo
         "timestamp": datetime.now().isoformat()
     }
 
+
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for monitoring and load balancers."""
+    """
+    Health check endpoint for Railway and load balancers.
+    Returns 200 OK when the service is healthy.
+    """
+    # Check if BigQuery is available
+    bigquery_status = "unavailable"
+    if BIGQUERY_AVAILABLE:
+        try:
+            from .bigquery_service import get_bigquery_service
+            bq = get_bigquery_service()
+            bigquery_status = "connected" if bq.is_available() else "not_configured"
+        except:
+            bigquery_status = "error"
+    
     return {
         "status": "healthy",
-        "service": "ui_client",
+        "service": "leadpilot-ui",
         "version": "1.0.0",
+        "environment": os.environ.get("RAILWAY_ENVIRONMENT", "local"),
         "timestamp": datetime.now().isoformat(),
-        "active_connections": len(manager.active_connections),
+        "components": {
+            "websocket_connections": len(manager.active_connections),
+            "business_count": len(app_state["businesses"]),
+            "bigquery": bigquery_status,
+            "email_tracker": "active" if EMAIL_TRACKER_AVAILABLE and email_tracker_instance else "unavailable",
+            "auth": "enabled" if AUTH_AVAILABLE else "disabled",
+        },
         "current_city": app_state["current_city"],
         "is_running": app_state["is_running"],
-        "business_count": len(app_state["businesses"]),
     }
+
+
+@app.get("/")
+async def root_health():
+    """Root endpoint - redirects to dashboard or returns health for simple checks."""
+    # For API health checks, return OK
+    return RedirectResponse(url="/dashboard", status_code=302)
 
 @app.post("/send_email")
 async def send_email_endpoint(
@@ -1937,35 +2054,41 @@ async def send_email_endpoint(
                 "timestamp": datetime.now().isoformat(),
             })
             
-            # Persist email event to BigQuery
-            if BIGQUERY_AVAILABLE and AUTH_AVAILABLE:
+            # Persist email event to BigQuery (email sent is part of SDR engagement)
+            if BIGQUERY_AVAILABLE:
                 try:
-                    user = await get_current_user(request)
-                    user_info = {
-                        "user_id": user.get("sub", "anonymous") if user else "anonymous",
-                        "email": user.get("email") if user else None,
-                        "name": user.get("name") if user else None,
-                    }
+                    user_info = {}
+                    if AUTH_AVAILABLE:
+                        try:
+                            user = await get_current_user(request)
+                            user_info = {
+                                "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                                "email": user.get("email") if user else None,
+                                "name": user.get("name") if user else None,
+                            }
+                        except Exception as auth_err:
+                            logger.warning(f"Could not get user for BigQuery: {auth_err}")
+                    
                     # Get research data if available
                     research_data = None
                     if "sdr_results" in app_state and business_id in app_state["sdr_results"]:
                         research_data = app_state["sdr_results"][business_id].get("research")
                     
-                    email_details = {
-                        "sent_at": datetime.now().isoformat() + "Z",
-                        "subject": subject,
-                        "recipient": recipient_email,
-                    }
-                    
-                    await persist_sdr_engaged(
+                    bq_result = await persist_sdr_engaged(
                         lead_id=business_id,
                         user_info=user_info,
                         lead_details=business.model_dump(),
                         research_data=research_data,
                     )
-                    logger.info(f"✅ Email event for {business.name} persisted to BigQuery")
+                    
+                    if bq_result.get("success"):
+                        logger.info(f"✅ Email event for {business.name} persisted to BigQuery")
+                    elif not bq_result.get("skipped"):
+                        logger.error(f"❌ BigQuery email event failed: {bq_result.get('error')}")
                 except Exception as bq_error:
-                    logger.warning(f"BigQuery persistence failed (non-blocking): {bq_error}")
+                    logger.error(f"❌ BigQuery persistence exception: {bq_error}", exc_info=True)
+            else:
+                logger.info("⏭️ BigQuery not available, email event not persisted")
         
         return JSONResponse(
             status_code=200,
@@ -2162,29 +2285,45 @@ async def confirm_lead(business_id: str, request: Request):
             "timestamp": datetime.now().isoformat(),
         })
         
-        # Persist to BigQuery as CONVERTING status
-        if BIGQUERY_AVAILABLE and AUTH_AVAILABLE:
+        # Persist to BigQuery as CONVERTING status - THIS IS A CRITICAL EVENT
+        # Lead has been explicitly confirmed by user action
+        if BIGQUERY_AVAILABLE:
             try:
-                user = await get_current_user(request)
-                user_info = {
-                    "user_id": user.get("sub", "anonymous") if user else "anonymous",
-                    "email": user.get("email") if user else None,
-                    "name": user.get("name") if user else None,
-                }
+                user_info = {}
+                if AUTH_AVAILABLE:
+                    try:
+                        user = await get_current_user(request)
+                        user_info = {
+                            "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                            "email": user.get("email") if user else None,
+                            "name": user.get("name") if user else None,
+                        }
+                    except Exception as auth_err:
+                        logger.warning(f"Could not get user for BigQuery: {auth_err}")
+                
                 # Get research data if available
                 research_data = None
                 if "sdr_results" in app_state and business_id in app_state["sdr_results"]:
                     research_data = app_state["sdr_results"][business_id].get("research")
                 
-                await persist_lead_converting(
+                logger.info(f"🔔 CONFIRMED LEAD: {business.name} - persisting to BigQuery...")
+                
+                bq_result = await persist_lead_converting(
                     lead_id=business_id,
                     user_info=user_info,
                     lead_details=business.model_dump(),
                     research_data=research_data,
                 )
-                logger.info(f"✅ Lead {business.name} persisted to BigQuery (CONVERTING)")
+                
+                if bq_result.get("success"):
+                    logger.info(f"✅ Lead {business.name} persisted to BigQuery (CONVERTING)")
+                else:
+                    # This is a critical failure - log as error, not warning
+                    logger.error(f"❌ CRITICAL: BigQuery CONVERTING persistence FAILED for {business.name}: {bq_result.get('error')}")
             except Exception as bq_error:
-                logger.warning(f"BigQuery persistence failed (non-blocking): {bq_error}")
+                logger.error(f"❌ CRITICAL: BigQuery persistence exception for {business.name}: {bq_error}", exc_info=True)
+        else:
+            logger.warning(f"⚠️ BigQuery not available - confirmed lead {business.name} NOT persisted!")
         
         # For POST requests (from dashboard), return JSON
         if request.method == "POST":
@@ -2402,23 +2541,37 @@ async def schedule_meeting(request: ScheduleMeetingRequest, req: Request):
             "timestamp": datetime.now().isoformat(),
         })
         
-        # Persist to BigQuery if available
+        # Persist to BigQuery if available - this is a CONFIRMED meeting
         if BIGQUERY_AVAILABLE:
             try:
                 user_info = {}
                 try:
                     if AUTH_AVAILABLE:
-                        user_info = await get_current_user(req)
-                except:
-                    pass
+                        user = await get_current_user(req)
+                        user_info = {
+                            "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                            "email": user.get("email") if user else None,
+                            "name": user.get("name") if user else None,
+                        }
+                except Exception as auth_err:
+                    logger.warning(f"Could not get user info for BigQuery: {auth_err}")
                 
-                persist_meeting_scheduled(
-                    business=business.model_dump(),
+                # Call with correct parameters - must await async function
+                bq_result = await persist_meeting_scheduled(
+                    lead_id=request.business_id,
                     user_info=user_info,
-                    meeting_data=meeting_data
+                    lead_details=business.model_dump(),
+                    meeting_details=meeting_data,
                 )
+                
+                if bq_result.get("success"):
+                    logger.info(f"✅ Meeting for {business.name} persisted to BigQuery (MEETING_SCHEDULED)")
+                else:
+                    logger.error(f"❌ BigQuery persistence FAILED for meeting: {bq_result.get('error')}")
             except Exception as e:
-                logger.warning(f"BigQuery persistence failed: {e}")
+                logger.error(f"❌ BigQuery persistence exception: {e}", exc_info=True)
+        else:
+            logger.info("⏭️ BigQuery not available, meeting not persisted")
         
         return JSONResponse(
             status_code=200,
