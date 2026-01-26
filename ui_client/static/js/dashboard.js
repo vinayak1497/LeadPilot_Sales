@@ -2322,7 +2322,14 @@ Please create a complete, production-ready website that ${businessName} can use 
         const description = document.getElementById('meeting-description')?.value.trim();
         
         if (!title || !date || !time) {
-            this.showErrorToast('Please fill in all required fields');
+            alert('Please fill in all required fields');
+            return;
+        }
+        
+        // Store business reference before any async operations
+        const businessToSchedule = this.currentMeetingBusiness;
+        if (!businessToSchedule) {
+            alert('Business information not found');
             return;
         }
         
@@ -2333,91 +2340,7 @@ Please create a complete, production-ready website that ${businessName} can use 
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Meeting...';
         }
         
-        try {
-            // Call the backend API to create the meeting
-            const response = await fetch('/schedule_meeting', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    business_id: this.currentMeetingBusiness.id,
-                    title: title,
-                    date: date,
-                    time: time,
-                    duration: duration,
-                    attendee_email: attendee,
-                    description: description
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Meeting created successfully via API
-                const meetingInfo = {
-                    businessId: this.currentMeetingBusiness.id,
-                    businessName: this.currentMeetingBusiness.name,
-                    title: title,
-                    date: date,
-                    time: time,
-                    duration: duration,
-                    attendee: attendee,
-                    description: description,
-                    meet_link: data.meeting?.meet_link || '',
-                    calendar_link: data.meeting?.calendar_link || '',
-                    meeting_id: data.meeting?.meeting_id || '',
-                    createdAt: new Date().toISOString(),
-                    status: 'scheduled'
-                };
-                
-                // Add to scheduled meetings storage
-                if (!this.scheduledMeetings) {
-                    this.scheduledMeetings = new Map();
-                }
-                this.scheduledMeetings.set(this.currentMeetingBusiness.id, meetingInfo);
-                
-                // Update business status in local state
-                const business = this.businesses.get(this.currentMeetingBusiness.id);
-                if (business) {
-                    business.status = 'meeting_scheduled';
-                    this.businesses.set(business.id, business);
-                }
-                
-                // Move to Calendar column with meet link
-                this.moveBusinessToCalendarColumn(this.currentMeetingBusiness, meetingInfo);
-                
-                // Show success toast with link
-                if (meetingInfo.meet_link) {
-                    this.showSuccessToast(`Meeting scheduled! Meet link: ${meetingInfo.meet_link.substring(0, 30)}...`);
-                } else {
-                    this.showSuccessToast(`Meeting scheduled successfully with ${this.currentMeetingBusiness.name}!`);
-                }
-                
-                // Update stats
-                this.updateStats();
-                
-                // Close the dialog
-                this.closeScheduleMeetingDialog();
-            } else if (data.fallback) {
-                // Fallback to manual calendar creation
-                this.createGoogleMeetingFallback(title, date, time, duration, attendee, description);
-            } else {
-                this.showErrorToast(data.error || 'Failed to create meeting');
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-video"></i> Create Meeting & Add to Calendar';
-                }
-            }
-        } catch (error) {
-            console.error('Error scheduling meeting:', error);
-            // Fallback to manual calendar creation
-            this.createGoogleMeetingFallback(title, date, time, duration, attendee, description);
-        }
-    }
-    
-    createGoogleMeetingFallback(title, date, time, duration, attendee, description) {
-        // Fallback: Create Google Calendar URL manually
+        // Create Google Calendar URL directly (works immediately)
         const startDateTime = new Date(`${date}T${time}:00`);
         const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
         
@@ -2428,41 +2351,86 @@ Please create a complete, production-ready website that ${businessName} can use 
         const startStr = formatGoogleDate(startDateTime);
         const endStr = formatGoogleDate(endDateTime);
         
+        // Build Google Calendar URL with Meet conferencing
         let calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE`;
         calendarUrl += `&text=${encodeURIComponent(title)}`;
         calendarUrl += `&dates=${startStr}/${endStr}`;
-        calendarUrl += `&details=${encodeURIComponent(description + '\\n\\n---\\nMeeting scheduled via LeadPilot')}`;
+        calendarUrl += `&details=${encodeURIComponent(description + '\n\n---\nMeeting scheduled via LeadPilot')}`;
         
         if (attendee) {
             calendarUrl += `&add=${encodeURIComponent(attendee)}`;
         }
+        // Add conference (Google Meet) flag
         calendarUrl += `&conf=1`;
         
+        // Open Google Calendar in new tab IMMEDIATELY
         window.open(calendarUrl, '_blank');
         
+        // Store meeting info
         const meetingInfo = {
-            businessId: this.currentMeetingBusiness.id,
-            businessName: this.currentMeetingBusiness.name,
+            businessId: businessToSchedule.id,
+            businessName: businessToSchedule.name,
             title: title,
             date: date,
             time: time,
             duration: duration,
             attendee: attendee,
             description: description,
-            meet_link: '',
-            calendar_link: '',
+            meet_link: '', // Will be available in Google Calendar
+            calendar_link: calendarUrl,
             createdAt: new Date().toISOString(),
             status: 'scheduled'
         };
         
+        // Add to scheduled meetings storage
         if (!this.scheduledMeetings) {
             this.scheduledMeetings = new Map();
         }
-        this.scheduledMeetings.set(this.currentMeetingBusiness.id, meetingInfo);
+        this.scheduledMeetings.set(businessToSchedule.id, meetingInfo);
         
-        this.moveBusinessToCalendarColumn(this.currentMeetingBusiness, meetingInfo);
-        this.showSuccessToast('Opening Google Calendar... Don\'t forget to save the event!');
+        // Update business status in local state
+        const business = this.businesses.get(businessToSchedule.id);
+        if (business) {
+            business.status = 'meeting_scheduled';
+            this.businesses.set(business.id, business);
+        }
+        
+        // Move to Calendar column
+        this.moveBusinessToCalendarColumn(businessToSchedule, meetingInfo);
+        
+        // Update stats
+        this.updateStats();
+        
+        // Show success message
+        this.showSuccessToast(`Meeting scheduled with ${businessToSchedule.name}! Complete in the Google Calendar tab.`);
+        
+        // Close the dialog
         this.closeScheduleMeetingDialog();
+        
+        // Also try to notify backend (non-blocking)
+        try {
+            fetch('/schedule_meeting', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    business_id: businessToSchedule.id,
+                    title: title,
+                    date: date,
+                    time: time,
+                    duration: duration,
+                    attendee_email: attendee,
+                    description: description
+                })
+            }).catch(err => console.log('Backend notification skipped:', err));
+        } catch (e) {
+            // Ignore backend errors - calendar already opened
+        }
+    }
+    
+    // Keep fallback for reference but primary method works directly
+    createGoogleMeetingFallback(title, date, time, duration, attendee, description) {
+        // Same as createGoogleMeeting - opens Calendar directly
+        this.createGoogleMeeting();
     }
     
     closeScheduleMeetingDialog(event) {
