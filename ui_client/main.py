@@ -1075,7 +1075,7 @@ async def run_lead_finding_process(city: str, session_id: str):
             await manager.send_update({
                 "type": "lead_finding_completed",
                 "city": city,
-                "business_count": len(app_state["businesses"]),
+                "business_count": len(found_businesses),  # Count only the businesses found in this search
                 "timestamp": datetime.now().isoformat(),
             })
             
