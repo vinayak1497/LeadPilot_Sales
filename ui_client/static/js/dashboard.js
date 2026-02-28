@@ -12,6 +12,25 @@ class DashboardManager {
         this.initializeWebSocket();
         this.initializeEventListeners();
         this.updateStats();
+
+        // Fallback: if WebSocket is slow, load businesses via API and attach handlers
+        setTimeout(() => this.loadBusinessesFromAPI(), 800);
+    }
+
+    async loadBusinessesFromAPI() {
+        if (this.businesses.size > 0) return; // Already populated via WebSocket
+        try {
+            const response = await fetch('/api/businesses');
+            const data = await response.json();
+            const list = data.businesses || data;
+            if (Array.isArray(list)) {
+                list.forEach(b => this.businesses.set(b.id, b));
+                this.attachClickHandlersToExistingCards();
+                this.updateStats();
+            }
+        } catch (e) {
+            console.warn('Could not load businesses from API:', e);
+        }
     }
     
     initializeWebSocket() {
@@ -159,6 +178,31 @@ class DashboardManager {
         
         // Don't close human input dialog on initial state - it might be legitimate state refresh
         // Only close dialog if it was just submitted (check for success message)
+
+        // Wire up click handlers to server-side rendered cards that don't have them yet
+        this.attachClickHandlersToExistingCards();
+    }
+
+    attachClickHandlersToExistingCards() {
+        // Find all Lead Finder cards that don't have a click handler yet
+        const leadFinderContent = document.getElementById('lead-finder-content');
+        if (!leadFinderContent) return;
+
+        const cards = leadFinderContent.querySelectorAll('.business-card:not([data-click-attached])');
+        cards.forEach(card => {
+            const businessId = card.getAttribute('data-business-id');
+            if (!businessId) return;
+
+            const business = this.businesses.get(businessId);
+            if (!business || business.status !== 'found') return;
+
+            card.classList.add('clickable');
+            card.style.cursor = 'pointer';
+            card.setAttribute('data-click-attached', 'true');
+            card.addEventListener('click', () => {
+                this.showResearchDialog(business);
+            });
+        });
     }
     
     handleBusinessAdded(data) {
@@ -317,6 +361,7 @@ class DashboardManager {
         
         // Add click handler for "found" status businesses - now opens research dialog first
         if (isClickable) {
+            card.setAttribute('data-click-attached', 'true');
             card.addEventListener('click', () => {
                 this.showResearchDialog(business);
             });

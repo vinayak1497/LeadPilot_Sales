@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeadPilot — Start a New Search</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#38BDF8",
+                        "obsidian": "#0C0C0C",
+                        "deep-indigo": "#1e1b4b",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "serif": ["Instrument Serif", "serif"]
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        .mesh-gradient {
+            background: radial-gradient(at 0% 0%, rgba(56,189,248,0.08) 0, transparent 50%),
+                        radial-gradient(at 100% 0%, rgba(56,189,248,0.04) 0, transparent 50%),
+                        radial-gradient(at 50% 100%, #F8F8FF 0, transparent 50%),
+                        #FFFFFF;
+        }
+        .grain-overlay {
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+        }
+        .glass-card {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(0,0,0,0.06);
+            box-shadow: 0 25px 60px -15px rgba(0,0,0,0.06);
+        }
+        .tactile-cta {
+            background-color: #38BDF8;
+            box-shadow: 0 20px 40px -10px rgba(56,189,248,0.5), inset 0 -4px 0px rgba(0,0,0,0.1);
+            transition: all 0.2s cubic-bezier(0.175,0.885,0.32,1.275);
+        }
+        .tactile-cta:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 25px 50px -12px rgba(56,189,248,0.6), inset 0 -4px 0px rgba(0,0,0,0.1);
+        }
+        .tactile-cta:active {
+            transform: translateY(2px);
+            box-shadow: 0 10px 20px -5px rgba(56,189,248,0.4), inset 0 2px 0px rgba(0,0,0,0.1);
+        }
+        .search-input:focus {
+            box-shadow: 0 0 0 4px rgba(56,189,248,0.15);
+            border-color: #38BDF8;
+        }
+        .instrument-serif { font-family: "Instrument Serif", serif; }
+    </style>
+
+    <!-- Clerk SDK -->
+    <script
+        async crossorigin="anonymous"
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://adequate-stinkbug-74.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+        type="text/javascript">
+    </script>
+</head>
+
+<body class="font-display text-obsidian min-h-screen mesh-gradient overflow-x-hidden">
+
+<!-- Grain overlay -->
+<div class="fixed inset-0 grain-overlay z-50"></div>
+
+<!-- Nav -->
+<nav class="relative z-40 px-6 py-6">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+        <a href="/" class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-3xl">rocket_launch</span>
+            <span class="text-xl font-black tracking-tighter text-obsidian">LEADPILOT</span>
+        </a>
+        <div class="flex items-center gap-4" id="nav-auth">
+            <!-- Clerk fills this -->
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<main class="relative z-20 flex items-center justify-center px-6" style="min-height: calc(100vh - 88px);">
+    <div class="w-full max-w-2xl">
+        <!-- Card -->
+        <div class="glass-card rounded-[2.5rem] p-8 sm:p-12 md:p-16">
+            <!-- Header -->
+            <div class="text-center mb-10">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/5 border border-primary/10 text-primary text-[10px] font-extrabold uppercase tracking-[0.2em] mb-6">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                    </span>
+                    AI Agents Ready
+                </div>
+                <h1 class="instrument-serif text-4xl sm:text-5xl md:text-6xl italic text-obsidian mb-4">
+                    Discover Your Next<br/><span class="text-primary not-italic font-display font-black">Customers</span>
+                </h1>
+                <p class="text-slate-500 text-base sm:text-lg max-w-md mx-auto">
+                    Enter any city and watch our AI agents find, qualify, and engage businesses for you.
+                </p>
+            </div>
+
+            <!-- Form -->
+            <form action="/start_lead_finding" method="post" class="space-y-6" id="search-form">
+                <div>
+                    <label for="city" class="flex items-center gap-2 text-sm font-bold text-obsidian mb-3">
+                        <span class="material-symbols-outlined text-primary text-lg">location_on</span>
+                        Target Location
+                    </label>
+                    <input
+                        type="text"
+                        id="city"
+                        name="city"
+                        class="search-input w-full px-6 py-5 rounded-2xl border border-slate-200 bg-white/80 text-lg font-medium text-obsidian placeholder:text-slate-300 focus:outline-none transition-all"
+                        placeholder="San Francisco, Mumbai, London, Austin..."
+                        required
+                        maxlength="100"
+                        autocomplete="off"
+                    />
+                    <p class="mt-2 text-xs text-slate-400 flex items-center gap-1">
+                        <span class="material-symbols-outlined text-xs">info</span>
+                        Our AI agents will automatically discover and qualify businesses in this area
+                    </p>
+                </div>
+
+                <button type="submit" class="tactile-cta w-full text-white py-5 rounded-2xl text-lg font-black tracking-tight flex items-center justify-center gap-3 group">
+                    <span class="material-symbols-outlined text-2xl">rocket_launch</span>
+                    <span id="btn-text">Launch AI Agents</span>
+                    <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+                </button>
+            </form>
+
+            <!-- How it works mini -->
+            <div class="mt-12 pt-8 border-t border-slate-100">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 text-center">What happens next</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="text-center">
+                        <div class="size-10 rounded-xl bg-primary/5 flex items-center justify-center mx-auto mb-2">
+                            <span class="material-symbols-outlined text-primary text-xl">person_search</span>
+                        </div>
+                        <p class="text-xs font-medium text-slate-500">Find Leads</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="size-10 rounded-xl bg-primary/5 flex items-center justify-center mx-auto mb-2">
+                            <span class="material-symbols-outlined text-primary text-xl">smart_toy</span>
+                        </div>
+                        <p class="text-xs font-medium text-slate-500">AI Outreach</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="size-10 rounded-xl bg-primary/5 flex items-center justify-center mx-auto mb-2">
+                            <span class="material-symbols-outlined text-primary text-xl">query_stats</span>
+                        </div>
+                        <p class="text-xs font-medium text-slate-500">Qualify</p>
+                    </div>
+                    <div class="text-center">
+                        <div class="size-10 rounded-xl bg-primary/5 flex items-center justify-center mx-auto mb-2">
+                            <span class="material-symbols-outlined text-primary text-xl">calendar_month</span>
+                        </div>
+                        <p class="text-xs font-medium text-slate-500">Book Meetings</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom trust -->
+        <div class="flex flex-wrap items-center justify-center gap-6 mt-8">
+            <span class="flex items-center gap-2 text-xs text-slate-400">
+                <span class="material-symbols-outlined text-emerald-500 text-sm">check_circle</span> Powered by Gemini 2.0
+            </span>
+            <span class="flex items-center gap-2 text-xs text-slate-400">
+                <span class="material-symbols-outlined text-emerald-500 text-sm">check_circle</span> BigQuery Storage
+            </span>
+            <span class="flex items-center gap-2 text-xs text-slate-400">
+                <span class="material-symbols-outlined text-emerald-500 text-sm">check_circle</span> Real-time Updates
+            </span>
+        </div>
+    </div>
+</main>
+
+<script>
+    // Auto-capitalize city input
+    const cityInput = document.getElementById('city');
+    cityInput.addEventListener('input', function(e) {
+        const words = e.target.value.split(' ');
+        e.target.value = words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    });
+    // Auto-focus
+    cityInput.focus();
+
+    // Submit animation
+    document.getElementById('search-form').addEventListener('submit', function() {
+        const btn = this.querySelector('button[type="submit"]');
+        const btnText = document.getElementById('btn-text');
+        btnText.textContent = 'Launching Agents...';
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+    });
+
+    // Clerk nav auth state
+    async function initClerkNav() {
+        try {
+            if (!window.Clerk) { setTimeout(initClerkNav, 150); return; }
+            await window.Clerk.load();
+            const container = document.getElementById('nav-auth');
+
+            if (window.Clerk.user) {
+                const name = window.Clerk.user.firstName ||
+                    window.Clerk.user.emailAddresses[0]?.emailAddress.split('@')[0] || 'User';
+                container.innerHTML = `
+                    <span class="text-sm font-medium text-slate-500">Welcome, <strong class="text-obsidian">${name}</strong></span>
+                    <button onclick="window.Clerk.signOut().then(()=>window.location.href='/')"
+                        class="text-sm font-medium text-slate-400 hover:text-red-500 transition-colors ml-4">
+                        Sign Out
+                    </button>`;
+            } else {
+                // Not logged in — redirect to login
+                window.location.href = '/auth/login';
+            }
+        } catch (e) { console.error('Clerk error:', e); }
+    }
+    document.addEventListener('DOMContentLoaded', initClerkNav);
+    window.addEventListener('load', () => setTimeout(initClerkNav, 500));
+</script>
+
+</body>
+</html>

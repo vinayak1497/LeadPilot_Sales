@@ -71,13 +71,14 @@ class EmailReplyTracker:
         """Generate a unique reference code for a business."""
         return hashlib.md5(f"{business_id}-confirm".encode()).hexdigest()[:8].upper()
     
-    def register_pending_lead(self, business_id: str, business_name: str, business_data: dict = None):
+    def register_pending_lead(self, business_id: str, business_name: str, business_data: dict = None, user_info: dict = None):
         """Register a lead as pending confirmation via email."""
         reference_code = self.generate_reference_code(business_id)
         self._pending_leads[reference_code] = {
             "business_id": business_id,
             "business_name": business_name,
             "business_data": business_data or {},
+            "user_info": user_info or {},
             "sent_at": datetime.now().isoformat(),
             "status": "pending"
         }

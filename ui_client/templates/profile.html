@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>LeadPilot — My Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#38BDF8",
+                        "pearl": "#F8F8FF",
+                        "obsidian": "#0C0C0C",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "serif": ["Instrument Serif", "serif"]
+                    },
+                },
+            },
+        }
+    </script>
+    <style type="text/tailwindcss">
+        .grain { background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none }
+        .bg-mesh { background-color:#fff; background-image:radial-gradient(at 0% 0%,hsla(210,100%,98%,1) 0,transparent 50%),radial-gradient(at 100% 0%,hsla(202,100%,96%,1) 0,transparent 50%),radial-gradient(at 50% 100%,hsla(215,100%,97%,1) 0,transparent 50%) }
+        .glass-nav { background:rgba(255,255,255,.7);backdrop-filter:blur(16px);border-bottom:1px solid rgba(12,12,12,.05);box-shadow:0 4px 30px rgba(0,0,0,.03) }
+        .frost { background:rgba(255,255,255,.7);backdrop-filter:blur(16px);border:1px solid rgba(0,0,0,.08);box-shadow:0 4px 24px -1px rgba(0,0,0,.03) }
+        .card { @apply frost rounded-2xl p-6 transition-all duration-300 }
+        .card:hover { transform:translateY(-2px);box-shadow:0 12px 40px -8px rgba(56,189,248,.12) }
+        .stat-card { @apply frost rounded-2xl p-5 flex flex-col items-center justify-center gap-1.5 transition-all duration-300 }
+        .stat-card:hover { transform:translateY(-4px);box-shadow:0 12px 40px -8px rgba(56,189,248,.15) }
+        .pill { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider }
+        .pill-sdr { @apply bg-blue-100 text-blue-700 }
+        .pill-converting { @apply bg-amber-100 text-amber-700 }
+        .pill-meeting { @apply bg-emerald-100 text-emerald-700 }
+        .pill-converted { @apply bg-green-100 text-green-800 }
+        .pill-confirmed { @apply bg-green-200 text-green-900 }
+        .lead-row { @apply frost rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 transition-all duration-200 }
+        .lead-row:hover { transform:translateY(-2px);box-shadow:0 8px 30px -4px rgba(0,0,0,.08) }
+        .skeleton { @apply animate-pulse bg-gray-200 rounded }
+        .btn-primary { background:#38BDF8;box-shadow:0 10px 25px -5px rgba(56,189,248,.4);transition:all .2s cubic-bezier(.175,.885,.32,1.275) }
+        .btn-primary:hover { transform:translateY(-2px);box-shadow:0 15px 30px -5px rgba(56,189,248,.5) }
+        .btn-primary:active { transform:translateY(1px) }
+        .tab { @apply px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none transition-all duration-200 }
+        .tab-active { @apply bg-primary text-white shadow-lg shadow-primary/20 }
+        .tab-inactive { @apply bg-gray-100 text-gray-600 hover:bg-gray-200 }
+        /* mini bar chart */
+        .bar { @apply rounded-full transition-all duration-500 ease-out }
+    </style>
+</head>
+<body class="bg-mesh min-h-screen font-display text-obsidian antialiased">
+    <div class="grain fixed inset-0 z-0"></div>
+
+    <!-- ─── NAV ──────────────────────────────────────────────── -->
+    <nav class="glass-nav sticky top-0 z-50 px-6 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2.5 group">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-sky-400 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
+                    <span class="material-symbols-outlined text-white text-xl" style="font-variation-settings:'FILL'1">rocket_launch</span>
+                </div>
+                <span class="text-lg font-bold tracking-tight">LeadPilot</span>
+            </a>
+            <div class="flex items-center gap-4">
+                <a href="/search" class="text-sm text-gray-500 hover:text-primary transition-colors font-medium">Search</a>
+                <a href="/profile" class="text-sm text-primary font-semibold border-b-2 border-primary pb-0.5">Dashboard</a>
+                <a href="/history" class="text-sm text-gray-500 hover:text-primary transition-colors font-medium">History</a>
+                <div id="nav-auth"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+        <!-- ─── LOADING SKELETON ─────────────────────────────── -->
+        <div id="loading-state" class="space-y-8">
+            <div class="flex items-center gap-5">
+                <div class="skeleton w-16 h-16 rounded-full"></div>
+                <div class="space-y-2"><div class="skeleton w-40 h-5"></div><div class="skeleton w-28 h-4"></div></div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="skeleton h-28 rounded-2xl"></div><div class="skeleton h-28 rounded-2xl"></div>
+                <div class="skeleton h-28 rounded-2xl"></div><div class="skeleton h-28 rounded-2xl"></div>
+            </div>
+            <div class="skeleton h-48 rounded-2xl"></div>
+        </div>
+
+        <!-- ─── NOT LOGGED IN ────────────────────────────────── -->
+        <div id="not-auth" class="hidden flex flex-col items-center justify-center py-24 text-center">
+            <div class="w-24 h-24 rounded-full bg-sky-50 flex items-center justify-center mb-6">
+                <span class="material-symbols-outlined text-5xl text-primary" style="font-variation-settings:'FILL'1">lock</span>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">Sign in to view your dashboard</h2>
+            <p class="text-gray-500 mb-8 max-w-md">Track your leads, monitor conversions, and view meeting history.</p>
+            <a href="/auth/login" class="btn-primary text-white font-semibold px-8 py-3 rounded-full">Sign In</a>
+        </div>
+
+        <!-- ─── AUTHENTICATED CONTENT ────────────────────────── -->
+        <div id="content" class="hidden space-y-8">
+
+            <!-- User header -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                <div class="relative shrink-0">
+                    <img id="avatar-img" src="" alt="" class="w-16 h-16 rounded-full object-cover border-[3px] border-white shadow-lg"
+                         onerror="this.style.display='none';document.getElementById('avatar-fb').style.display='flex'"/>
+                    <div id="avatar-fb" class="hidden w-16 h-16 rounded-full bg-gradient-to-br from-primary to-sky-400 items-center justify-center text-white text-xl font-bold shadow-lg">
+                        <span id="avatar-letter">?</span>
+                    </div>
+                    <div class="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-emerald-400 rounded-full border-2 border-white"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h1 id="u-name" class="text-2xl sm:text-3xl font-bold tracking-tight truncate"></h1>
+                    <p id="u-email" class="text-gray-500 text-sm truncate"></p>
+                    <p id="u-since" class="text-xs text-gray-400 mt-0.5 hidden">Member since <span id="u-since-val"></span> &middot; <span id="u-logins">0</span> logins</p>
+                </div>
+                <a href="/search" class="btn-primary text-white font-semibold px-5 py-2.5 rounded-full text-sm flex items-center gap-2 shrink-0">
+                    <span class="material-symbols-outlined text-lg">search</span> New Search
+                </a>
+            </div>
+
+            <!-- Stats row -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="stats-grid">
+                <div class="stat-card">
+                    <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-blue-500" style="font-variation-settings:'FILL'1">group</span>
+                    </div>
+                    <span id="s-total" class="text-3xl font-bold">0</span>
+                    <span class="text-[11px] text-gray-500 font-medium uppercase tracking-wider">Total Leads</span>
+                </div>
+                <div class="stat-card">
+                    <div class="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-amber-500" style="font-variation-settings:'FILL'1">trending_up</span>
+                    </div>
+                    <span id="s-converting" class="text-3xl font-bold">0</span>
+                    <span class="text-[11px] text-gray-500 font-medium uppercase tracking-wider">Converting</span>
+                </div>
+                <div class="stat-card">
+                    <div class="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-emerald-500" style="font-variation-settings:'FILL'1">event_available</span>
+                    </div>
+                    <span id="s-meetings" class="text-3xl font-bold">0</span>
+                    <span class="text-[11px] text-gray-500 font-medium uppercase tracking-wider">Meetings</span>
+                </div>
+                <div class="stat-card">
+                    <div class="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-green-600" style="font-variation-settings:'FILL'1">check_circle</span>
+                    </div>
+                    <span id="s-converted" class="text-3xl font-bold">0</span>
+                    <span class="text-[11px] text-gray-500 font-medium uppercase tracking-wider">Converted</span>
+                </div>
+            </div>
+
+            <!-- Analytics row — pipeline bar + cities -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Pipeline breakdown -->
+                <div class="card">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">Pipeline Breakdown</h3>
+                    <div id="pipeline-bars" class="space-y-3">
+                        <p class="text-gray-400 text-sm" id="pipeline-empty">No data yet</p>
+                    </div>
+                </div>
+                <!-- City breakdown -->
+                <div class="card">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">Cities Searched</h3>
+                    <div id="cities-list" class="flex flex-wrap gap-2">
+                        <p class="text-gray-400 text-sm" id="cities-empty">No searches yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter tabs -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="setFilter(null)" class="tab tab-active" data-f="all">All Leads</button>
+                <button onclick="setFilter('ENGAGED_SDR')" class="tab tab-inactive" data-f="ENGAGED_SDR">
+                    <i class="fas fa-bolt mr-1 text-blue-500"></i> SDR Engaged
+                </button>
+                <button onclick="setFilter('CONVERTING')" class="tab tab-inactive" data-f="CONVERTING">
+                    <i class="fas fa-chart-line mr-1 text-amber-500"></i> Converting
+                </button>
+                <button onclick="setFilter('MEETING_SCHEDULED')" class="tab tab-inactive" data-f="MEETING_SCHEDULED">
+                    <i class="fas fa-calendar-check mr-1 text-emerald-500"></i> Meeting
+                </button>
+                <button onclick="setFilter('CONFIRMED')" class="tab tab-inactive" data-f="CONFIRMED">
+                    <i class="fas fa-check-circle mr-1 text-green-600"></i> Confirmed
+                </button>
+            </div>
+
+            <!-- Leads list -->
+            <div id="leads" class="space-y-3"></div>
+
+            <!-- Empty -->
+            <div id="leads-empty" class="hidden flex flex-col items-center py-16 text-center">
+                <div class="w-20 h-20 rounded-full bg-sky-50 flex items-center justify-center mb-5">
+                    <span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings:'FILL'1">inbox</span>
+                </div>
+                <h3 class="text-xl font-bold mb-2">No leads yet</h3>
+                <p class="text-gray-500 mb-6 max-w-sm">Start a search to discover and engage leads. Your pipeline will appear here.</p>
+                <a href="/search" class="btn-primary text-white font-semibold px-8 py-3 rounded-full text-sm">Start Searching</a>
+            </div>
+
+            <!-- Recent activity -->
+            <div class="card" id="activity-section">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">Recent Activity</h3>
+                <div id="activity-list" class="space-y-2 max-h-64 overflow-y-auto">
+                    <p class="text-gray-400 text-sm" id="activity-empty">No activity yet</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    // ═══════════════════════════════════════════════════════
+    // State
+    // ═══════════════════════════════════════════════════════
+    let curFilter = null;
+    let allLeads = [];
+    let curUser = null;
+
+    // ═══════════════════════════════════════════════════════
+    // Init
+    // ═══════════════════════════════════════════════════════
+    async function init() {
+        try {
+            await Clerk.load();
+
+            const nav = document.getElementById('nav-auth');
+            if (Clerk.user) {
+                Clerk.mountUserButton(nav, { afterSignOutUrl: '/' });
+            } else {
+                nav.innerHTML = '<a href="/auth/login" class="text-sm font-medium text-gray-600 hover:text-primary transition">Sign In</a>';
+            }
+
+            // Try backend auth first
+            let user = null;
+            try {
+                const r = await fetch('/api/auth/user');
+                const d = await r.json();
+                if (d.authenticated && d.user) user = d.user;
+            } catch (_) {}
+
+            // Fallback to Clerk client data
+            if (!user && Clerk.user) {
+                user = {
+                    name: Clerk.user.fullName || Clerk.user.firstName || 'User',
+                    email: Clerk.user.primaryEmailAddress?.emailAddress || '',
+                    picture: Clerk.user.imageUrl,
+                    sub: Clerk.user.id,
+                };
+            }
+
+            hide('loading-state');
+            if (!user) { show('not-auth'); return; }
+
+            curUser = user;
+            show('content');
+            renderUser(user);
+            await Promise.all([loadStats(), loadLeads()]);
+        } catch (e) {
+            console.error('Init error:', e);
+            hide('loading-state');
+            show('not-auth');
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Render user header
+    // ═══════════════════════════════════════════════════════
+    function renderUser(u) {
+        const name = u.name || u.first_name || 'User';
+        const email = u.email || '';
+        const pic = u.picture || '';
+
+        qs('#u-name').textContent = name;
+        qs('#u-email').textContent = email;
+
+        if (pic) {
+            qs('#avatar-img').src = pic;
+            qs('#avatar-img').style.display = '';
+            qs('#avatar-fb').style.display = 'none';
+        } else {
+            qs('#avatar-img').style.display = 'none';
+            qs('#avatar-fb').style.display = 'flex';
+            qs('#avatar-letter').textContent = name.charAt(0).toUpperCase();
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Stats
+    // ═══════════════════════════════════════════════════════
+    async function loadStats() {
+        try {
+            const r = await fetch('/api/user/stats');
+            const d = await r.json();
+            if (!d.success) return;
+            const s = d.stats;
+
+            qs('#s-total').textContent = s.total || 0;
+            qs('#s-converting').textContent = s.converting || 0;
+            qs('#s-meetings').textContent = s.meetings_scheduled || 0;
+            qs('#s-converted').textContent = s.converted || 0;
+
+            if (s.member_since) {
+                qs('#u-since-val').textContent = new Date(s.member_since).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                qs('#u-since').classList.remove('hidden');
+            }
+            if (s.login_count) {
+                qs('#u-logins').textContent = s.login_count;
+            }
+
+            // Pipeline bars
+            renderPipeline(s);
+
+            // Cities
+            renderCities(s.cities || []);
+
+        } catch (e) { console.warn('Stats error:', e); }
+    }
+
+    function renderPipeline(s) {
+        const total = s.total || 0;
+        if (!total) return;
+        qs('#pipeline-empty').style.display = 'none';
+        const items = [
+            { label: 'SDR Engaged', count: s.sdr_engaged||0, color: 'bg-blue-400' },
+            { label: 'Converting', count: s.converting||0, color: 'bg-amber-400' },
+            { label: 'Meeting Scheduled', count: s.meetings_scheduled||0, color: 'bg-emerald-400' },
+            { label: 'Converted', count: s.converted||0, color: 'bg-green-500' },
+        ];
+        qs('#pipeline-bars').innerHTML = items.map(i => {
+            const pct = total > 0 ? Math.round((i.count / total) * 100) : 0;
+            return `
+                <div class="flex items-center gap-3">
+                    <span class="w-32 text-xs text-gray-600 font-medium truncate">${i.label}</span>
+                    <div class="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                        <div class="bar h-full ${i.color}" style="width:${pct}%"></div>
+                    </div>
+                    <span class="text-xs font-bold text-gray-700 w-8 text-right">${i.count}</span>
+                </div>`;
+        }).join('');
+    }
+
+    function renderCities(cities) {
+        if (!cities.length) return;
+        qs('#cities-empty').style.display = 'none';
+        qs('#cities-list').innerHTML = cities.map(c =>
+            `<span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-50 text-sky-700 text-xs font-semibold">
+                <i class="fas fa-map-marker-alt text-[10px]"></i> ${esc(c)}
+            </span>`
+        ).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Leads
+    // ═══════════════════════════════════════════════════════
+    async function loadLeads() {
+        try {
+            let url = '/api/leads/history';
+            if (curFilter) url += `?status=${curFilter}`;
+            const r = await fetch(url);
+            const d = await r.json();
+            allLeads = (d.success && d.leads) ? d.leads : [];
+            renderLeads(allLeads);
+            renderActivity(allLeads);
+        } catch (e) {
+            console.error('Leads error:', e);
+            renderLeads([]);
+        }
+    }
+
+    function renderLeads(leads) {
+        const box = qs('#leads');
+        const empty = qs('#leads-empty');
+        if (!leads.length) { box.innerHTML = ''; empty.classList.remove('hidden'); return; }
+        empty.classList.add('hidden');
+
+        box.innerHTML = leads.map(l => {
+            const st = l.current_status || l.status || '';
+            const name = l.business_name || 'Unknown Business';
+            const city = l.business_city || '';
+            const phone = l.business_phone || '';
+            const email = l.business_email || l.contact_email || '';
+            const rating = l.business_rating || '';
+            const cat = (l.business_types && l.business_types[0]) || l.business_category || '';
+            const research = l.research_summary || '';
+            const updated = l.updated_at ? fmtDate(l.updated_at) : '';
+            const pillCls = pillClass(st);
+            const pillLbl = fmtStatus(st);
+
+            return `
+            <div class="lead-row group">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1 flex-wrap">
+                        <h3 class="text-sm sm:text-base font-bold truncate">${esc(name)}</h3>
+                        <span class="pill ${pillCls}">${pillLbl}</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-500">
+                        ${city ? `<span class="flex items-center gap-1"><i class="fas fa-map-marker-alt text-[10px] text-primary"></i>${esc(city)}</span>` : ''}
+                        ${cat ? `<span class="flex items-center gap-1"><i class="fas fa-tag text-[10px] text-gray-400"></i>${esc(cat)}</span>` : ''}
+                        ${rating ? `<span class="flex items-center gap-1"><i class="fas fa-star text-[10px] text-amber-400"></i>${rating}</span>` : ''}
+                        ${phone ? `<span class="flex items-center gap-1"><i class="fas fa-phone text-[10px] text-gray-400"></i>${esc(phone)}</span>` : ''}
+                        ${email ? `<span class="flex items-center gap-1"><i class="fas fa-envelope text-[10px] text-gray-400"></i>${esc(email)}</span>` : ''}
+                    </div>
+                    ${research ? `<p class="text-xs text-gray-400 mt-1.5 line-clamp-2">${esc(research.substring(0,200))}</p>` : ''}
+                </div>
+                <div class="flex items-center gap-2 text-xs text-gray-400 shrink-0">
+                    ${updated}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderActivity(leads) {
+        if (!leads.length) return;
+        qs('#activity-empty').style.display = 'none';
+
+        // Show last 10 activity events
+        const events = leads.slice(0, 10).map(l => {
+            const name = l.business_name || 'Unknown';
+            const st = l.current_status || l.status || '';
+            const time = l.updated_at ? fmtDateTime(l.updated_at) : '';
+            const icon = activityIcon(st);
+            return `
+            <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+                <div class="w-8 h-8 rounded-lg ${icon.bg} flex items-center justify-center shrink-0">
+                    <i class="fas ${icon.icon} text-xs ${icon.text}"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium truncate">${esc(name)}</p>
+                    <p class="text-xs text-gray-400">${fmtStatus(st)}</p>
+                </div>
+                <span class="text-xs text-gray-400 shrink-0">${time}</span>
+            </div>`;
+        });
+        qs('#activity-list').innerHTML = events.join('');
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Filter
+    // ═══════════════════════════════════════════════════════
+    function setFilter(status) {
+        curFilter = status;
+        document.querySelectorAll('.tab[data-f]').forEach(btn => {
+            const active = (status === null && btn.dataset.f === 'all') || btn.dataset.f === status;
+            btn.className = `tab ${active ? 'tab-active' : 'tab-inactive'}`;
+        });
+        loadLeads();
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // Helpers
+    // ═══════════════════════════════════════════════════════
+    function qs(sel) { return document.querySelector(sel); }
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+
+    function esc(t) {
+        if (!t) return '';
+        const d = document.createElement('div'); d.textContent = t; return d.innerHTML;
+    }
+
+    function fmtDate(iso) {
+        try { return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch(_) { return ''; }
+    }
+    function fmtDateTime(iso) {
+        try { return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); } catch(_) { return ''; }
+    }
+
+    function pillClass(s) {
+        if (!s) return 'pill-sdr';
+        s = s.toUpperCase();
+        if (s === 'CONFIRMED') return 'pill-confirmed';
+        if (s.includes('MEETING')) return 'pill-meeting';
+        if (s.includes('CONVERT')) return 'pill-converting';
+        if (s.includes('SDR') || s.includes('ENGAGED')) return 'pill-sdr';
+        return 'pill-sdr';
+    }
+    function fmtStatus(s) {
+        if (!s) return 'Engaged';
+        s = s.toUpperCase();
+        if (s === 'CONFIRMED') return 'Confirmed';
+        if (s.includes('MEETING')) return 'Meeting Scheduled';
+        if (s.includes('CONVERTING')) return 'Converting';
+        if (s.includes('SDR') || s.includes('ENGAGED')) return 'SDR Engaged';
+        return s.replace(/_/g,' ');
+    }
+    function activityIcon(s) {
+        if (!s) return {bg:'bg-blue-50',icon:'fa-bolt',text:'text-blue-500'};
+        s = s.toUpperCase();
+        if (s === 'CONFIRMED') return {bg:'bg-green-50',icon:'fa-check-circle',text:'text-green-600'};
+        if (s.includes('MEETING')) return {bg:'bg-emerald-50',icon:'fa-calendar-check',text:'text-emerald-500'};
+        if (s.includes('CONVERT')) return {bg:'bg-amber-50',icon:'fa-chart-line',text:'text-amber-500'};
+        return {bg:'bg-blue-50',icon:'fa-bolt',text:'text-blue-500'};
+    }
+
+    // Boot
+    init();
+    </script>
+</body>
+</html>

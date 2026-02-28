@@ -233,14 +233,26 @@ async def generate_proposal(business_data: Dict[str, Any], research_data: Dict[s
         }
     
     try:
+        # Safely serialize data (handle datetime objects)
+        def _safe_json(obj):
+            if isinstance(obj, dict):
+                return {k: _safe_json(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [_safe_json(i) for i in obj]
+            elif hasattr(obj, 'isoformat'):
+                return obj.isoformat()
+            elif isinstance(obj, Enum):
+                return obj.value
+            return obj
+
         proposal_prompt = f"""
 You are a professional sales copywriter. Create a compelling, personalized sales proposal for website development services.
 
 ## Business Information:
-{json.dumps(business_data, indent=2)}
+{json.dumps(_safe_json(business_data), indent=2)}
 
 ## Research Findings:
-{json.dumps(research_data, indent=2)}
+{json.dumps(_safe_json(research_data), indent=2)}
 
 ## Your Task:
 Write a short, personalized sales proposal (2-3 paragraphs) that:

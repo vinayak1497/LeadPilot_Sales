@@ -22,15 +22,15 @@ logger = logging.getLogger(__name__)
 # Clerk Configuration
 CLERK_PUBLISHABLE_KEY = os.environ.get(
     "CLERK_PUBLISHABLE_KEY", 
-    "pk_test_ZGVjaWRpbmctcmVwdGlsZS00NS5jbGVyay5hY2NvdW50cy5kZXYk"
+    "pk_test_YWRlcXVhdGUtc3RpbmtidWctNzQuY2xlcmsuYWNjb3VudHMuZGV2JA"
 )
 CLERK_SECRET_KEY = os.environ.get(
     "CLERK_SECRET_KEY",
-    "sk_test_4ZLvDlSIzqRk2vhW3Rb3EIKjRaINqZoDyWmXw0JLHH"
+    "sk_test_ZkAm2lUd3ozxD9CXfp2VogQqNJ3TbMDE9ighv3JiXo"
 )
 CLERK_FRONTEND_API = os.environ.get(
     "CLERK_FRONTEND_API",
-    "https://deciding-reptile-45.clerk.accounts.dev"
+    "https://adequate-stinkbug-74.clerk.accounts.dev"
 )
 CLERK_JWKS_URL = f"{CLERK_FRONTEND_API}/.well-known/jwks.json"
 

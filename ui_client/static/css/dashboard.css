@@ -752,6 +752,15 @@ body {
     border-color: var(--primary-200);
 }
 
+.business-card.clickable {
+    cursor: pointer;
+}
+
+.business-card.clickable:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-lg), 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
 .business-card:hover {
     border-color: var(--border-medium);
     box-shadow: var(--shadow-md);

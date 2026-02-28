@@ -91,22 +91,26 @@ except ImportError as e:
     AUTH_AVAILABLE = False
     CLERK_PUBLISHABLE_KEY = os.environ.get(
         "CLERK_PUBLISHABLE_KEY",
-        "pk_test_ZGVjaWRpbmctcmVwdGlsZS00NS5jbGVyay5hY2NvdW50cy5kZXYk"
+        "pk_test_YWRlcXVhdGUtc3RpbmtidWctNzQuY2xlcmsuYWNjb3VudHMuZGV2JA"
     )
     logger.warning(f"Auth module not available, auth disabled: {e}")
 
-# Import BigQuery persistence service
+# Import Firebase persistence service (replaces BigQuery)
 try:
-    from .bigquery_service import (
-        get_bigquery_service, persist_sdr_engaged, 
-        persist_lead_converting, persist_meeting_scheduled,
-        LeadStatus
+    from .firebase_service import (
+        get_firebase_service, get_bigquery_service,
+        persist_sdr_engaged, persist_lead_converting,
+        persist_meeting_scheduled, persist_lead_confirmed,
+        add_note_to_lead, get_lead_full_details,
+        update_lead_status_by_column, LeadStatus
     )
-    BIGQUERY_AVAILABLE = True
-    logger.info("BigQuery persistence service loaded")
+    BIGQUERY_AVAILABLE = True  # kept as BIGQUERY_AVAILABLE for compat
+    FIREBASE_AVAILABLE = True
+    logger.info("Firebase persistence service loaded")
 except ImportError as e:
     BIGQUERY_AVAILABLE = False
-    logger.warning(f"BigQuery service not available: {e}")
+    FIREBASE_AVAILABLE = False
+    logger.warning(f"Firebase service not available: {e}")
 
 # Import calendar utilities for meeting scheduling
 try:
@@ -286,6 +290,28 @@ async def handle_email_confirmation(lead_info: dict):
             "timestamp": datetime.now().isoformat(),
         })
         
+        # Persist to Firebase as CONVERTING (email-confirmed lead)
+        if BIGQUERY_AVAILABLE:
+            try:
+                research_data = None
+                if "sdr_results" in app_state and business_id in app_state["sdr_results"]:
+                    research_data = app_state["sdr_results"][business_id].get("research")
+                # Use user_info stored when the email was sent
+                _auto_user = lead_info.get("user_info", {}) or {"user_id": "email_auto_confirm"}
+                bq_result = await persist_lead_converting(
+                    lead_id=business_id,
+                    user_info=_auto_user,
+                    lead_details=business.model_dump(),
+                    email_details={"confirmed_by": lead_info.get("confirmed_by"), "confirmed_at": datetime.now().isoformat()},
+                    research_data=research_data,
+                )
+                if bq_result.get("success"):
+                    logger.info(f"✅ Auto-confirmed lead {business_name} persisted to Firebase (CONVERTING)")
+                elif not bq_result.get("skipped"):
+                    logger.error(f"❌ Firebase CONVERTING persist failed for {business_name}: {bq_result.get('error')}")
+            except Exception as bq_err:
+                logger.error(f"❌ Firebase persist exception for auto-confirm: {bq_err}")
+        
         logger.info(f"✅ Lead {business_name} auto-confirmed and moved to Lead Manager")
 
 async def handle_email_rejection(lead_info: dict):
@@ -364,7 +390,7 @@ def setup_google_credentials():
             logger.info(f"✅ Using local Google credentials: {path}")
             return True
     
-    logger.warning("⚠️ No Google credentials found - BigQuery persistence may not work")
+    logger.warning("⚠️ No Google credentials found - Firebase persistence may still work via RTDB URL")
     return False
 
 
@@ -382,17 +408,17 @@ async def lifespan(app: FastAPI):
     # Setup Google Cloud credentials (Railway support)
     setup_google_credentials()
     
-    # Initialize BigQuery service
+    # Initialize Firebase service
     if BIGQUERY_AVAILABLE:
         try:
-            from .bigquery_service import get_bigquery_service
-            bq_service = get_bigquery_service()
-            if bq_service.is_available():
-                logger.info("✅ BigQuery service initialized successfully")
+            from .firebase_service import get_firebase_service
+            fb_service = get_firebase_service()
+            if fb_service.is_available():
+                logger.info("✅ Firebase service initialized successfully")
             else:
-                logger.warning("⚠️ BigQuery service not available")
+                logger.warning("⚠️ Firebase service not available")
         except Exception as e:
-            logger.warning(f"⚠️ BigQuery initialization failed: {e}")
+            logger.warning(f"⚠️ Firebase initialization failed: {e}")
     
     # Initialize and start email reply tracker
     if EMAIL_TRACKER_AVAILABLE:
@@ -1223,29 +1249,51 @@ async def agent_callback(update: AgentUpdate):
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request) -> HTMLResponse:
-    """Serves the main page - either input form or dashboard."""
-    if app_state["is_running"] or app_state["businesses"]:
-        # Show dashboard if we have data or process is running
-        response = templates.TemplateResponse(
-            name="dashboard.html",
-            context={
-                "request": request,  # Correct: 'request' is now inside the context
-                "businesses": list(app_state["businesses"].values()),
-                "current_city": app_state["current_city"],
-                "is_running": app_state["is_running"],
-                "agent_updates": app_state["agent_updates"][-20:],  # Last 20 updates
-            }
-        )
-    else:
-        # Show input form
-        response = templates.TemplateResponse(
-            name="index.html",
-            context={
-                "request": request  # Correct: 'request' is now inside the context
-            }
-        )
-    
+    """Serves the landing page — the first thing every visitor sees."""
+    response = templates.TemplateResponse(
+        name="landing.html",
+        context={
+            "request": request,
+            "clerk_publishable_key": CLERK_PUBLISHABLE_KEY
+        }
+    )
     # Add cache control headers to force refresh
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+@app.get("/search", response_class=HTMLResponse)
+async def search_page(request: Request) -> HTMLResponse:
+    """Serves the city search / input page (requires auth via Clerk on client)."""
+    response = templates.TemplateResponse(
+        name="search.html",
+        context={
+            "request": request,
+            "clerk_publishable_key": CLERK_PUBLISHABLE_KEY
+        }
+    )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard_page(request: Request) -> HTMLResponse:
+    """Serves the dashboard with lead data."""
+    response = templates.TemplateResponse(
+        name="dashboard.html",
+        context={
+            "request": request,
+            "businesses": list(app_state["businesses"].values()),
+            "current_city": app_state["current_city"],
+            "is_running": app_state["is_running"],
+            "agent_updates": app_state["agent_updates"][-20:],
+            "clerk_publishable_key": CLERK_PUBLISHABLE_KEY
+        }
+    )
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -1260,6 +1308,95 @@ async def architecture_diagram(request: Request) -> HTMLResponse:
             "request": request
         }
     )
+
+
+# ============================================
+# USER PROFILE & LEADS DASHBOARD
+# ============================================
+
+@app.get("/profile", response_class=HTMLResponse)
+async def user_profile_page(request: Request) -> HTMLResponse:
+    """Serves the user profile and leads dashboard page."""
+    response = templates.TemplateResponse(
+        name="profile.html",
+        context={
+            "request": request,
+            "clerk_publishable_key": CLERK_PUBLISHABLE_KEY
+        }
+    )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
+@app.get("/history", response_class=HTMLResponse)
+async def lead_history_page(request: Request) -> HTMLResponse:
+    """Serves the lead history and analytics page."""
+    response = templates.TemplateResponse(
+        name="history.html",
+        context={
+            "request": request,
+            "clerk_publishable_key": CLERK_PUBLISHABLE_KEY
+        }
+    )
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return response
+
+
+@app.get("/api/user/stats")
+async def get_user_stats_api(request: Request) -> JSONResponse:
+    """Get current user's lead statistics from Firebase."""
+    if not FIREBASE_AVAILABLE:
+        return JSONResponse(content={"success": False, "error": "Firebase not available"})
+    
+    try:
+        user_id = "anonymous"
+        if AUTH_AVAILABLE:
+            user = await get_current_user(request)
+            if user:
+                user_id = user.get("sub", "anonymous")
+        
+        fb_service = get_firebase_service()
+        if not fb_service.is_available():
+            return JSONResponse(content={"success": False, "error": "Firebase not initialized"})
+        
+        stats = await fb_service.get_user_stats(user_id)
+        
+        # Also get user profile for member_since and login_count
+        profile = await fb_service.get_user_profile(user_id)
+        if profile:
+            if profile.get("created_at"):
+                stats["member_since"] = profile["created_at"]
+            if profile.get("login_count"):
+                stats["login_count"] = profile["login_count"]
+        
+        return JSONResponse(content={"success": True, "stats": stats})
+    except Exception as e:
+        logger.error(f"Failed to get user stats: {e}")
+        return JSONResponse(content={"success": False, "error": str(e)})
+
+
+@app.get("/api/user/profile")
+async def get_user_profile_api(request: Request) -> JSONResponse:
+    """Get current user's profile from Firebase."""
+    if not FIREBASE_AVAILABLE:
+        return JSONResponse(content={"success": False, "error": "Firebase not available"})
+    
+    try:
+        user_id = "anonymous"
+        if AUTH_AVAILABLE:
+            user = await get_current_user(request)
+            if user:
+                user_id = user.get("sub", "anonymous")
+        
+        fb_service = get_firebase_service()
+        if not fb_service.is_available():
+            return JSONResponse(content={"success": False, "error": "Firebase not initialized"})
+        
+        profile = await fb_service.get_user_profile(user_id)
+        return JSONResponse(content={"success": True, "profile": profile or {}})
+    except Exception as e:
+        logger.error(f"Failed to get user profile: {e}")
+        return JSONResponse(content={"success": False, "error": str(e)})
 
 
 # ============================================
@@ -1307,6 +1444,25 @@ async def get_user_api(request: Request) -> JSONResponse:
         user = await get_current_user(request)
         if user:
             auth_state = AuthState(user)
+            
+            # Track user sign-in to Firebase
+            if FIREBASE_AVAILABLE:
+                try:
+                    fb_service = get_firebase_service()
+                    if fb_service.is_available():
+                        user_agent = request.headers.get("user-agent", "unknown")
+                        ip_address = request.client.host if request.client else "unknown"
+                        await fb_service.track_user_signin(
+                            user_id=user.get("sub", "anonymous"),
+                            email=user.get("email"),
+                            name=user.get("name"),
+                            picture=user.get("picture"),
+                            ip_address=ip_address,
+                            user_agent=user_agent
+                        )
+                except Exception as e:
+                    logger.warning(f"Failed to track user sign-in: {e}")
+            
             return JSONResponse(content={
                 "authenticated": True,
                 "user": auth_state.to_dict()
@@ -1380,7 +1536,7 @@ async def start_lead_finding(city: str = Form(...)):
         # Call Lead Finder agent asynchronously
         asyncio.create_task(run_lead_finding_process(request_data.city, app_state["session_id"]))
         
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse("/dashboard", status_code=303)
         
     except ValidationError as e:
         logger.error(f"Invalid city input: {e}")
@@ -1408,13 +1564,13 @@ async def get_businesses():
 @app.get("/api/leads/history")
 async def get_leads_history(request: Request, status: Optional[str] = None):
     """
-    API endpoint to get persisted lead history from BigQuery.
+    API endpoint to get persisted lead history from Firebase.
     Returns leads for the current authenticated user.
     """
     if not BIGQUERY_AVAILABLE:
         return JSONResponse(
             status_code=503,
-            content={"success": False, "error": "BigQuery service not available"}
+            content={"success": False, "error": "Firebase service not available"}
         )
     
     try:
@@ -1425,12 +1581,12 @@ async def get_leads_history(request: Request, status: Optional[str] = None):
             if user:
                 user_id = user.get("sub", "anonymous")
         
-        # Query BigQuery
-        bq_service = get_bigquery_service()
-        if not bq_service.is_available():
+        # Query Firebase
+        fb_service = get_firebase_service()
+        if not fb_service.is_available():
             return JSONResponse(
                 status_code=503,
-                content={"success": False, "error": "BigQuery client not initialized"}
+                content={"success": False, "error": "Firebase client not initialized"}
             )
         
         # Convert status string to enum if provided
@@ -1441,7 +1597,7 @@ async def get_leads_history(request: Request, status: Optional[str] = None):
             except ValueError:
                 pass
         
-        leads = await bq_service.get_leads_by_user(user_id, status_filter)
+        leads = await fb_service.get_leads_by_user(user_id, status_filter)
         
         return {
             "success": True,
@@ -1457,6 +1613,229 @@ async def get_leads_history(request: Request, status: Optional[str] = None):
             status_code=500,
             content={"success": False, "error": str(e)}
         )
+
+
+@app.get("/api/leads/{lead_id}")
+async def get_lead_details(lead_id: str, request: Request):
+    """
+    API endpoint to get full details for a specific lead.
+    Returns all lead data including meeting info and notes.
+    """
+    if not BIGQUERY_AVAILABLE:
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "error": "Firebase service not available"}
+        )
+    
+    try:
+        # Get current user
+        user_id = "anonymous"
+        if AUTH_AVAILABLE:
+            user = await get_current_user(request)
+            if user:
+                user_id = user.get("sub", "anonymous")
+        
+        lead_data = await get_lead_full_details(lead_id)
+        
+        if not lead_data:
+            return JSONResponse(
+                status_code=404,
+                content={"success": False, "error": "Lead not found"}
+            )
+        
+        # Verify the lead belongs to this user (or is anonymous)
+        lead_user = lead_data.get("user_id", "anonymous")
+        if lead_user != "anonymous" and lead_user != user_id:
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "error": "Access denied"}
+            )
+        
+        return {"success": True, "lead": lead_data}
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch lead details: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+@app.post("/api/leads/{lead_id}/confirm")
+async def confirm_lead_final(lead_id: str, request: Request):
+    """
+    API endpoint to mark a lead as CONFIRMED (final status).
+    This is the last stage of the lead lifecycle.
+    """
+    if not BIGQUERY_AVAILABLE:
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "error": "Firebase service not available"}
+        )
+    
+    try:
+        # Get current user
+        user_info = {}
+        if AUTH_AVAILABLE:
+            user = await get_current_user(request)
+            if user:
+                user_info = {
+                    "user_id": user.get("sub", "anonymous"),
+                    "email": user.get("email"),
+                    "name": user.get("name"),
+                }
+        
+        # Parse optional note from request body
+        note = None
+        try:
+            body = await request.json()
+            note = body.get("note")
+        except Exception:
+            pass
+        
+        result = await persist_lead_confirmed(lead_id, user_info, note)
+        
+        if result.get("success"):
+            logger.info(f"✅ Lead {lead_id} confirmed (final status)")
+            return {"success": True, "lead_id": lead_id, "status": "CONFIRMED"}
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": result.get("error", "Failed to confirm lead")}
+            )
+        
+    except Exception as e:
+        logger.error(f"Failed to confirm lead: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+@app.post("/api/leads/{lead_id}/add_note")
+async def add_lead_note(lead_id: str, request: Request):
+    """
+    API endpoint to add a note to a lead.
+    """
+    if not BIGQUERY_AVAILABLE:
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "error": "Firebase service not available"}
+        )
+    
+    try:
+        # Get current user
+        user_info = {}
+        if AUTH_AVAILABLE:
+            user = await get_current_user(request)
+            if user:
+                user_info = {
+                    "user_id": user.get("sub", "anonymous"),
+                    "email": user.get("email"),
+                    "name": user.get("name"),
+                }
+        
+        # Parse note from request body
+        try:
+            body = await request.json()
+            note = body.get("note")
+        except Exception:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Invalid request body"}
+            )
+        
+        if not note or not note.strip():
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Note cannot be empty"}
+            )
+        
+        result = await add_note_to_lead(lead_id, note.strip(), user_info)
+        
+        if result.get("success"):
+            logger.info(f"✅ Note added to lead {lead_id}")
+            return {"success": True, "lead_id": lead_id}
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": result.get("error", "Failed to add note")}
+            )
+        
+    except Exception as e:
+        logger.error(f"Failed to add note to lead: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+@app.post("/api/leads/{lead_id}/update_status")
+async def update_lead_status(lead_id: str, request: Request):
+    """
+    API endpoint to update lead status based on dashboard column.
+    Call this when a lead is moved to a different column.
+    """
+    if not BIGQUERY_AVAILABLE:
+        return JSONResponse(
+            status_code=503,
+            content={"success": False, "error": "Firebase service not available"}
+        )
+    
+    try:
+        # Get current user
+        user_info = {}
+        if AUTH_AVAILABLE:
+            user = await get_current_user(request)
+            if user:
+                user_info = {
+                    "user_id": user.get("sub", "anonymous"),
+                    "email": user.get("email"),
+                    "name": user.get("name"),
+                }
+        
+        # Parse status from request body
+        try:
+            body = await request.json()
+            column_status = body.get("status") or body.get("column_status")
+            lead_details = body.get("lead_details")
+            meeting_details = body.get("meeting_details")
+        except Exception:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Invalid request body"}
+            )
+        
+        if not column_status:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Status is required"}
+            )
+        
+        result = await update_lead_status_by_column(
+            lead_id=lead_id,
+            column_status=column_status,
+            user_info=user_info,
+            lead_details=lead_details,
+            meeting_details=meeting_details
+        )
+        
+        if result.get("success"):
+            logger.info(f"✅ Lead {lead_id} status updated to {result.get('status')}")
+            return {"success": True, "lead_id": lead_id, "status": result.get("status")}
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": result.get("error", "Failed to update status")}
+            )
+        
+    except Exception as e:
+        logger.error(f"Failed to update lead status: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
 
 @app.get("/api/status")
 async def get_status():
@@ -1552,6 +1931,33 @@ async def send_business_to_sdr(
                 "timestamp": datetime.now().isoformat(),
             })
             
+            # Persist to Firebase even when proposal fails - research still succeeded
+            if BIGQUERY_AVAILABLE:
+                try:
+                    user_info = {}
+                    if AUTH_AVAILABLE:
+                        try:
+                            user = await get_current_user(request)
+                            user_info = {
+                                "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                                "email": user.get("email") if user else None,
+                                "name": user.get("name") if user else None,
+                            }
+                        except Exception:
+                            pass
+                    bq_result = await persist_sdr_engaged(
+                        lead_id=business_id,
+                        user_info=user_info,
+                        lead_details=business_data,
+                        research_data=research_data,
+                    )
+                    if bq_result.get("success"):
+                        logger.info(f"✅ Lead {business.name} persisted to Firebase (SDR_ENGAGED, no proposal)")
+                    elif not bq_result.get("skipped"):
+                        logger.error(f"❌ Firebase SDR_ENGAGED failed: {bq_result.get('error')}")
+                except Exception as bq_error:
+                    logger.error(f"❌ Firebase persistence exception: {bq_error}")
+            
             return JSONResponse(
                 status_code=200,
                 content={
@@ -1589,7 +1995,7 @@ async def send_business_to_sdr(
         
         logger.info(f"SDR Agent successfully processed {business.name}")
         
-        # Persist to BigQuery if available - SDR engaged is first lifecycle stage
+        # Persist to Firebase if available - SDR engaged is first lifecycle stage
         if BIGQUERY_AVAILABLE:
             try:
                 user_info = {}
@@ -1602,7 +2008,7 @@ async def send_business_to_sdr(
                             "name": user.get("name") if user else None,
                         }
                     except Exception as auth_err:
-                        logger.warning(f"Could not get user for BigQuery: {auth_err}")
+                        logger.warning(f"Could not get user for Firebase: {auth_err}")
                 
                 bq_result = await persist_sdr_engaged(
                     lead_id=business_id,
@@ -1612,13 +2018,13 @@ async def send_business_to_sdr(
                 )
                 
                 if bq_result.get("success"):
-                    logger.info(f"✅ Lead {business.name} persisted to BigQuery (SDR_ENGAGED)")
+                    logger.info(f"✅ Lead {business.name} persisted to Firebase (SDR_ENGAGED)")
                 elif not bq_result.get("skipped"):
-                    logger.error(f"❌ BigQuery SDR_ENGAGED failed: {bq_result.get('error')}")
+                    logger.error(f"❌ Firebase SDR_ENGAGED failed: {bq_result.get('error')}")
             except Exception as bq_error:
-                logger.error(f"❌ BigQuery persistence exception: {bq_error}", exc_info=True)
+                logger.error(f"❌ Firebase persistence exception: {bq_error}", exc_info=True)
         else:
-            logger.info("⏭️ BigQuery not available, SDR engagement not persisted")
+            logger.info("⏭️ Firebase not available, SDR engagement not persisted")
         
         return JSONResponse(
             status_code=200,
@@ -1959,15 +2365,15 @@ async def health_check():
     Health check endpoint for Railway and load balancers.
     Returns 200 OK when the service is healthy.
     """
-    # Check if BigQuery is available
-    bigquery_status = "unavailable"
+    # Check if Firebase is available
+    firebase_status = "unavailable"
     if BIGQUERY_AVAILABLE:
         try:
-            from .bigquery_service import get_bigquery_service
-            bq = get_bigquery_service()
-            bigquery_status = "connected" if bq.is_available() else "not_configured"
+            from .firebase_service import get_firebase_service
+            fb = get_firebase_service()
+            firebase_status = "connected" if fb.is_available() else "not_configured"
         except:
-            bigquery_status = "error"
+            firebase_status = "error"
     
     return {
         "status": "healthy",
@@ -1978,7 +2384,7 @@ async def health_check():
         "components": {
             "websocket_connections": len(manager.active_connections),
             "business_count": len(app_state["businesses"]),
-            "bigquery": bigquery_status,
+            "firebase": firebase_status,
             "email_tracker": "active" if EMAIL_TRACKER_AVAILABLE and email_tracker_instance else "unavailable",
             "auth": "enabled" if AUTH_AVAILABLE else "disabled",
         },
@@ -2054,7 +2460,7 @@ async def send_email_endpoint(
                 "timestamp": datetime.now().isoformat(),
             })
             
-            # Persist email event to BigQuery (email sent is part of SDR engagement)
+            # Persist email event to Firebase (email sent is part of SDR engagement)
             if BIGQUERY_AVAILABLE:
                 try:
                     user_info = {}
@@ -2067,7 +2473,7 @@ async def send_email_endpoint(
                                 "name": user.get("name") if user else None,
                             }
                         except Exception as auth_err:
-                            logger.warning(f"Could not get user for BigQuery: {auth_err}")
+                            logger.warning(f"Could not get user for Firebase: {auth_err}")
                     
                     # Get research data if available
                     research_data = None
@@ -2082,13 +2488,13 @@ async def send_email_endpoint(
                     )
                     
                     if bq_result.get("success"):
-                        logger.info(f"✅ Email event for {business.name} persisted to BigQuery")
+                        logger.info(f"✅ Email event for {business.name} persisted to Firebase")
                     elif not bq_result.get("skipped"):
-                        logger.error(f"❌ BigQuery email event failed: {bq_result.get('error')}")
+                        logger.error(f"❌ Firebase email event failed: {bq_result.get('error')}")
                 except Exception as bq_error:
-                    logger.error(f"❌ BigQuery persistence exception: {bq_error}", exc_info=True)
+                    logger.error(f"❌ Firebase persistence exception: {bq_error}", exc_info=True)
             else:
-                logger.info("⏭️ BigQuery not available, email event not persisted")
+                logger.info("⏭️ Firebase not available, email event not persisted")
         
         return JSONResponse(
             status_code=200,
@@ -2111,6 +2517,7 @@ async def send_email_endpoint(
 
 @app.post("/send_confirmation_email")
 async def send_confirmation_email(
+    request: Request,
     business_id: str = Form(...),
     email_body: str = Form(...)
 ):
@@ -2210,10 +2617,23 @@ async def send_confirmation_email(
         
         # Register with email tracker for automatic confirmation
         if EMAIL_TRACKER_AVAILABLE and email_tracker_instance:
+            # Extract user info to pass through to auto-confirm callback
+            _tracker_user_info = {}
+            if AUTH_AVAILABLE:
+                try:
+                    _u = await get_current_user(request)
+                    _tracker_user_info = {
+                        "user_id": _u.get("sub", "anonymous") if _u else "anonymous",
+                        "email": _u.get("email") if _u else None,
+                        "name": _u.get("name") if _u else None,
+                    }
+                except Exception:
+                    pass
             email_tracker_instance.register_pending_lead(
                 business_id=business_id,
                 business_name=business.name,
-                business_data=business.model_dump()
+                business_data=business.model_dump(),
+                user_info=_tracker_user_info
             )
             logger.info(f"📧 Lead registered for email reply tracking: {business.name}")
         
@@ -2233,6 +2653,36 @@ async def send_confirmation_email(
             },
             "timestamp": datetime.now().isoformat(),
         })
+        
+        # Persist to Firebase — confirmation email sent is part of SDR engagement
+        if BIGQUERY_AVAILABLE:
+            try:
+                user_info = {}
+                if AUTH_AVAILABLE:
+                    try:
+                        user = await get_current_user(request)
+                        user_info = {
+                            "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                            "email": user.get("email") if user else None,
+                            "name": user.get("name") if user else None,
+                        }
+                    except Exception:
+                        pass
+                research_data = None
+                if "sdr_results" in app_state and business_id in app_state["sdr_results"]:
+                    research_data = app_state["sdr_results"][business_id].get("research")
+                bq_result = await persist_sdr_engaged(
+                    lead_id=business_id,
+                    user_info=user_info,
+                    lead_details=business.model_dump(),
+                    research_data=research_data,
+                )
+                if bq_result.get("success"):
+                    logger.info(f"✅ Confirmation email for {business.name} persisted to Firebase")
+                elif not bq_result.get("skipped"):
+                    logger.error(f"❌ Firebase persist failed for confirmation email: {bq_result.get('error')}")
+            except Exception as bq_err:
+                logger.error(f"❌ Firebase persist exception: {bq_err}")
         
         return JSONResponse(
             status_code=200,
@@ -2285,45 +2735,17 @@ async def confirm_lead(business_id: str, request: Request):
             "timestamp": datetime.now().isoformat(),
         })
         
-        # Persist to BigQuery as CONVERTING status - THIS IS A CRITICAL EVENT
-        # Lead has been explicitly confirmed by user action
+        # NOTE: Dashboard confirm only moves lead to Lead Manager column in UI
+        # It should NOT change the Firebase status (SDR_ENGAGED, CONVERTING, MEETING_SCHEDULED)
+        # The Firebase status reflects WHERE the lead came from (what action was taken)
+        # Only adding a note to Firebase to track this UI action
         if BIGQUERY_AVAILABLE:
             try:
-                user_info = {}
-                if AUTH_AVAILABLE:
-                    try:
-                        user = await get_current_user(request)
-                        user_info = {
-                            "user_id": user.get("sub", "anonymous") if user else "anonymous",
-                            "email": user.get("email") if user else None,
-                            "name": user.get("name") if user else None,
-                        }
-                    except Exception as auth_err:
-                        logger.warning(f"Could not get user for BigQuery: {auth_err}")
-                
-                # Get research data if available
-                research_data = None
-                if "sdr_results" in app_state and business_id in app_state["sdr_results"]:
-                    research_data = app_state["sdr_results"][business_id].get("research")
-                
-                logger.info(f"🔔 CONFIRMED LEAD: {business.name} - persisting to BigQuery...")
-                
-                bq_result = await persist_lead_converting(
-                    lead_id=business_id,
-                    user_info=user_info,
-                    lead_details=business.model_dump(),
-                    research_data=research_data,
-                )
-                
-                if bq_result.get("success"):
-                    logger.info(f"✅ Lead {business.name} persisted to BigQuery (CONVERTING)")
-                else:
-                    # This is a critical failure - log as error, not warning
-                    logger.error(f"❌ CRITICAL: BigQuery CONVERTING persistence FAILED for {business.name}: {bq_result.get('error')}")
-            except Exception as bq_error:
-                logger.error(f"❌ CRITICAL: BigQuery persistence exception for {business.name}: {bq_error}", exc_info=True)
-        else:
-            logger.warning(f"⚠️ BigQuery not available - confirmed lead {business.name} NOT persisted!")
+                note = f"Lead moved to Lead Manager column at {datetime.now().isoformat()}"
+                await add_note_to_lead(business_id, note)
+                logger.info(f"✅ Added note to Firebase for lead {business.name} (status preserved)")
+            except Exception as note_error:
+                logger.warning(f"Could not add note to Firebase: {note_error}")
         
         # For POST requests (from dashboard), return JSON
         if request.method == "POST":
@@ -2448,6 +2870,60 @@ async def schedule_meeting(request: ScheduleMeetingRequest, req: Request):
     # Check if calendar utilities are available
     if not CALENDAR_UTILS_AVAILABLE:
         logger.warning("Calendar utilities not available, using fallback method")
+        
+        # Even without calendar utils, update status to MEETING_SCHEDULED in Firebase
+        business.status = BusinessStatus.MEETING_SCHEDULED
+        business.updated_at = datetime.now()
+        business.notes.append(f"Meeting scheduled (manual): {request.title} on {request.date} at {request.time}")
+        
+        # Persist to Firebase
+        if BIGQUERY_AVAILABLE:
+            try:
+                user_info = {}
+                if AUTH_AVAILABLE:
+                    try:
+                        user = await get_current_user(req)
+                        user_info = {
+                            "user_id": user.get("sub", "anonymous") if user else "anonymous",
+                            "email": user.get("email") if user else None,
+                            "name": user.get("name") if user else None,
+                        }
+                    except Exception:
+                        pass
+                
+                meeting_data = {
+                    "title": request.title,
+                    "date": request.date,
+                    "time": request.time,
+                    "duration": request.duration,
+                    "attendee": request.attendee_email,
+                }
+                
+                bq_result = await persist_meeting_scheduled(
+                    lead_id=request.business_id,
+                    user_info=user_info,
+                    lead_details=business.model_dump(),
+                    meeting_details=meeting_data,
+                )
+                if bq_result.get("success"):
+                    logger.info(f"✅ Meeting (manual) for {business.name} persisted to Firebase (MEETING_SCHEDULED)")
+                else:
+                    logger.error(f"❌ Firebase persistence failed for manual meeting: {bq_result.get('error')}")
+            except Exception as e:
+                logger.error(f"❌ Firebase persistence exception: {e}")
+        
+        # Send WebSocket update to move card to Calendar column
+        await manager.send_update({
+            "type": "business_updated",
+            "agent": "calendar",
+            "business": business.model_dump(),
+            "update": {
+                "status": "meeting_scheduled",
+                "message": f"Meeting scheduled (manual): {request.title}",
+            },
+            "timestamp": datetime.now().isoformat(),
+        })
+        
         # Fallback: return info for manual calendar creation
         return JSONResponse(
             status_code=200,
@@ -2541,7 +3017,7 @@ async def schedule_meeting(request: ScheduleMeetingRequest, req: Request):
             "timestamp": datetime.now().isoformat(),
         })
         
-        # Persist to BigQuery if available - this is a CONFIRMED meeting
+        # Persist to Firebase if available - this is a CONFIRMED meeting
         if BIGQUERY_AVAILABLE:
             try:
                 user_info = {}
@@ -2554,7 +3030,7 @@ async def schedule_meeting(request: ScheduleMeetingRequest, req: Request):
                             "name": user.get("name") if user else None,
                         }
                 except Exception as auth_err:
-                    logger.warning(f"Could not get user info for BigQuery: {auth_err}")
+                    logger.warning(f"Could not get user info for Firebase: {auth_err}")
                 
                 # Call with correct parameters - must await async function
                 bq_result = await persist_meeting_scheduled(
@@ -2565,13 +3041,13 @@ async def schedule_meeting(request: ScheduleMeetingRequest, req: Request):
                 )
                 
                 if bq_result.get("success"):
-                    logger.info(f"✅ Meeting for {business.name} persisted to BigQuery (MEETING_SCHEDULED)")
+                    logger.info(f"✅ Meeting for {business.name} persisted to Firebase (MEETING_SCHEDULED)")
                 else:
-                    logger.error(f"❌ BigQuery persistence FAILED for meeting: {bq_result.get('error')}")
+                    logger.error(f"❌ Firebase persistence FAILED for meeting: {bq_result.get('error')}")
             except Exception as e:
-                logger.error(f"❌ BigQuery persistence exception: {e}", exc_info=True)
+                logger.error(f"❌ Firebase persistence exception: {e}", exc_info=True)
         else:
-            logger.info("⏭️ BigQuery not available, meeting not persisted")
+            logger.info("⏭️ Firebase not available, meeting not persisted")
         
         return JSONResponse(
             status_code=200,

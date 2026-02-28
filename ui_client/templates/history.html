@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>LeadPilot — Lead History & Analytics</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#38BDF8",
+                        "pearl": "#F8F8FF",
+                        "obsidian": "#0C0C0C",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "serif": ["Instrument Serif", "serif"]
+                    },
+                },
+            },
+        }
+    </script>
+    <style type="text/tailwindcss">
+        .grain { background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none }
+        .bg-mesh { background-color:#fff; background-image:radial-gradient(at 0% 0%,hsla(210,100%,98%,1) 0,transparent 50%),radial-gradient(at 100% 0%,hsla(202,100%,96%,1) 0,transparent 50%),radial-gradient(at 50% 100%,hsla(215,100%,97%,1) 0,transparent 50%) }
+        .glass-nav { background:rgba(255,255,255,.7);backdrop-filter:blur(16px);border-bottom:1px solid rgba(12,12,12,.05);box-shadow:0 4px 30px rgba(0,0,0,.03) }
+        .frost { background:rgba(255,255,255,.7);backdrop-filter:blur(16px);border:1px solid rgba(0,0,0,.08);box-shadow:0 4px 24px -1px rgba(0,0,0,.03) }
+        .card { @apply frost rounded-2xl p-6 transition-all duration-300 }
+        .card:hover { transform:translateY(-2px);box-shadow:0 12px 40px -8px rgba(56,189,248,.12) }
+        .stat-card { @apply frost rounded-2xl p-5 flex flex-col items-center justify-center gap-1.5 transition-all duration-300 }
+        .stat-card:hover { transform:translateY(-4px);box-shadow:0 12px 40px -8px rgba(56,189,248,.15) }
+        .pill { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider }
+        .pill-sdr { @apply bg-blue-100 text-blue-700 }
+        .pill-converting { @apply bg-amber-100 text-amber-700 }
+        .pill-meeting { @apply bg-emerald-100 text-emerald-700 }
+        .pill-converted { @apply bg-green-100 text-green-800 }
+        .pill-confirmed { @apply bg-green-200 text-green-900 }
+        .lead-card { @apply frost rounded-2xl p-5 transition-all duration-200 cursor-pointer }
+        .lead-card:hover { transform:translateY(-3px);box-shadow:0 12px 40px -8px rgba(0,0,0,.1) }
+        .btn-primary { background:#38BDF8;box-shadow:0 10px 25px -5px rgba(56,189,248,.4);transition:all .2s cubic-bezier(.175,.885,.32,1.275) }
+        .btn-primary:hover { transform:translateY(-2px);box-shadow:0 15px 30px -5px rgba(56,189,248,.5) }
+        .btn-primary:active { transform:translateY(1px) }
+        .tab { @apply px-4 py-2 rounded-full text-sm font-medium cursor-pointer select-none transition-all duration-200 }
+        .tab-active { @apply bg-primary text-white shadow-lg shadow-primary/20 }
+        .tab-inactive { @apply bg-gray-100 text-gray-600 hover:bg-gray-200 }
+        .bar { @apply rounded-full transition-all duration-700 ease-out }
+        .timeline-dot { @apply w-3 h-3 rounded-full border-2 border-white shadow-sm }
+        .timeline-line { @apply absolute left-[5px] top-6 bottom-0 w-0.5 bg-gray-200 }
+    </style>
+</head>
+<body class="bg-mesh min-h-screen font-display text-obsidian antialiased">
+    <div class="grain fixed inset-0 z-0"></div>
+
+    <!-- NAV -->
+    <nav class="glass-nav sticky top-0 z-50 px-6 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2.5 group">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-sky-400 flex items-center justify-center shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
+                    <span class="material-symbols-outlined text-white text-xl" style="font-variation-settings:'FILL'1">rocket_launch</span>
+                </div>
+                <span class="text-lg font-bold tracking-tight">LeadPilot</span>
+            </a>
+            <div class="flex items-center gap-4">
+                <a href="/search" class="text-sm text-gray-500 hover:text-primary transition-colors font-medium">Search</a>
+                <a href="/profile" class="text-sm text-gray-500 hover:text-primary transition-colors font-medium">Dashboard</a>
+                <a href="/history" class="text-sm text-primary font-semibold border-b-2 border-primary pb-0.5">History</a>
+                <div id="nav-auth"></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+        <!-- LOADING -->
+        <div id="loading-state" class="space-y-8">
+            <div class="skeleton animate-pulse bg-gray-200 rounded h-8 w-64 mb-4"></div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="animate-pulse bg-gray-200 rounded-2xl h-28"></div>
+                <div class="animate-pulse bg-gray-200 rounded-2xl h-28"></div>
+                <div class="animate-pulse bg-gray-200 rounded-2xl h-28"></div>
+                <div class="animate-pulse bg-gray-200 rounded-2xl h-28"></div>
+            </div>
+            <div class="animate-pulse bg-gray-200 rounded-2xl h-64"></div>
+        </div>
+
+        <!-- NOT AUTH -->
+        <div id="not-auth" class="hidden flex flex-col items-center justify-center py-24 text-center">
+            <div class="w-20 h-20 rounded-full bg-sky-50 flex items-center justify-center mb-6">
+                <span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings:'FILL'1">lock</span>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">Sign in to view your lead history</h2>
+            <p class="text-gray-500 mb-8 max-w-md">Track all your generated leads, meetings scheduled, and conversion analytics.</p>
+            <a href="/auth/login" class="btn-primary text-white font-semibold px-8 py-3 rounded-full">Sign In</a>
+        </div>
+
+        <!-- CONTENT -->
+        <div id="content" class="hidden space-y-8">
+
+            <!-- Page header -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">Lead History & Analytics</h1>
+                    <p class="text-gray-500 text-sm mt-1">Complete overview of all leads you've generated and their journey</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="/search" class="btn-primary text-white font-semibold px-5 py-2.5 rounded-full text-sm flex items-center gap-2">
+                        <span class="material-symbols-outlined text-lg">search</span> New Search
+                    </a>
+                    <button onclick="loadAll()" class="frost rounded-full px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-primary transition flex items-center gap-2">
+                        <span class="material-symbols-outlined text-lg">refresh</span> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats summary -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="stat-card">
+                    <div class="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-blue-500" style="font-variation-settings:'FILL'1">group</span>
+                    </div>
+                    <span id="s-total" class="text-3xl font-bold">0</span>
+                    <span class="text-[11px] text-gray-500 font-medium uppercase tracking-wider">Total Leads</span>
+                </div>
+                <div class="stat-card">
+                    <div class="w-11 h-11 rounded-xl bg-sky-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-sky-500" style="font-variation-settings:'FILL'1">bolt</span>
+                    </div>
+                    <span id="s-sdr" class="text-3xl font-bold">0</span>
+                    <span class="text-[11px] text-gray-500 font-medium uppercase tracking-wider">SDR Engaged</span>
+                </div>
+                <div class="stat-card">
+                    <div class="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-amber-500" style="font-variation-settings:'FILL'1">trending_up</span>
+                    </div>
+                    <span id="s-converting" class="text-3xl font-bold">0</span>
+                    <span class="text-[11px] text-gray-500 font-medium uppercase tracking-wider">Converting</span>
+                </div>
+                <div class="stat-card">
+                    <div class="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-emerald-500" style="font-variation-settings:'FILL'1">event_available</span>
+                    </div>
+                    <span id="s-meetings" class="text-3xl font-bold">0</span>
+                    <span class="text-[11px] text-gray-500 font-medium uppercase tracking-wider">Meetings</span>
+                </div>
+                <div class="stat-card">
+                    <div class="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-green-600" style="font-variation-settings:'FILL'1">check_circle</span>
+                    </div>
+                    <span id="s-converted" class="text-3xl font-bold">0</span>
+                    <span class="text-[11px] text-gray-500 font-medium uppercase tracking-wider">Converted</span>
+                </div>
+            </div>
+
+            <!-- Analytics row -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <!-- Conversion funnel -->
+                <div class="card lg:col-span-2">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-5">Lead Pipeline Funnel</h3>
+                    <div id="funnel" class="space-y-4">
+                        <p class="text-gray-400 text-sm" id="funnel-empty">No pipeline data yet — start a search to generate leads</p>
+                    </div>
+                </div>
+                <!-- City distribution -->
+                <div class="card">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-5">Cities Searched</h3>
+                    <div id="cities" class="space-y-3">
+                        <p class="text-gray-400 text-sm" id="cities-empty">No searches yet</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters + search -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button onclick="setFilter(null)" class="tab tab-active" data-f="all">All</button>
+                    <button onclick="setFilter('ENGAGED_SDR')" class="tab tab-inactive" data-f="ENGAGED_SDR">
+                        <i class="fas fa-bolt mr-1 text-blue-500"></i> SDR Engaged
+                    </button>
+                    <button onclick="setFilter('CONVERTING')" class="tab tab-inactive" data-f="CONVERTING">
+                        <i class="fas fa-chart-line mr-1 text-amber-500"></i> Converting
+                    </button>
+                    <button onclick="setFilter('MEETING_SCHEDULED')" class="tab tab-inactive" data-f="MEETING_SCHEDULED">
+                        <i class="fas fa-calendar-check mr-1 text-emerald-500"></i> Meeting
+                    </button>
+                    <button onclick="setFilter('CONFIRMED')" class="tab tab-inactive" data-f="CONFIRMED">
+                        <i class="fas fa-check-circle mr-1 text-green-600"></i> Confirmed
+                    </button>
+                </div>
+                <div class="relative w-full sm:w-72">
+                    <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">search</span>
+                    <input id="search-input" type="text" placeholder="Search leads..." oninput="onSearch(this.value)"
+                           class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white/70 backdrop-blur text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"/>
+                </div>
+            </div>
+
+            <!-- Leads table / cards -->
+            <div id="leads-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+            <!-- Empty state -->
+            <div id="leads-empty" class="hidden flex flex-col items-center py-16 text-center">
+                <div class="w-20 h-20 rounded-full bg-sky-50 flex items-center justify-center mb-5">
+                    <span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings:'FILL'1">inbox</span>
+                </div>
+                <h3 class="text-xl font-bold mb-2">No leads found</h3>
+                <p class="text-gray-500 mb-6 max-w-sm">Start a search to discover businesses and build your pipeline.</p>
+                <a href="/search" class="btn-primary text-white font-semibold px-8 py-3 rounded-full text-sm">Start Searching</a>
+            </div>
+
+            <!-- Timeline -->
+            <div class="card" id="timeline-section">
+                <div class="flex items-center justify-between mb-5">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400">Activity Timeline</h3>
+                    <span id="timeline-count" class="text-xs text-gray-400"></span>
+                </div>
+                <div id="timeline" class="relative pl-6 space-y-0 max-h-96 overflow-y-auto">
+                    <p class="text-gray-400 text-sm" id="timeline-empty">No activity yet</p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Lead Detail Modal -->
+    <div id="lead-modal" class="fixed inset-0 z-50 hidden">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeLeadModal()"></div>
+        
+        <!-- Modal Content -->
+        <div class="absolute inset-4 sm:inset-8 md:inset-16 lg:inset-24 bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                <div class="flex items-center gap-3">
+                    <div id="modal-status-icon" class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-xl text-blue-500" style="font-variation-settings:'FILL'1">business</span>
+                    </div>
+                    <div>
+                        <h2 id="modal-business-name" class="text-lg font-bold text-obsidian">Business Name</h2>
+                        <span id="modal-status-badge" class="pill pill-sdr">Status</span>
+                    </div>
+                </div>
+                <button onclick="closeLeadModal()" class="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
+                    <span class="material-symbols-outlined text-gray-500">close</span>
+                </button>
+            </div>
+            
+            <!-- Modal Body (scrollable) -->
+            <div class="flex-1 overflow-y-auto px-6 py-6">
+                <div class="max-w-3xl mx-auto space-y-6">
+                    
+                    <!-- Basic Info Section -->
+                    <div class="bg-gray-50 rounded-2xl p-5">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">Business Information</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div id="modal-city" class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-sky-50 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-map-marker-alt text-primary text-sm"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Location</span>
+                                    <span class="text-sm font-medium text-gray-700" id="modal-city-value">-</span>
+                                </div>
+                            </div>
+                            <div id="modal-phone" class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-phone text-green-500 text-sm"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Phone</span>
+                                    <span class="text-sm font-medium text-gray-700" id="modal-phone-value">-</span>
+                                </div>
+                            </div>
+                            <div id="modal-email" class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-envelope text-purple-500 text-sm"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Email</span>
+                                    <span class="text-sm font-medium text-gray-700" id="modal-email-value">-</span>
+                                </div>
+                            </div>
+                            <div id="modal-category" class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-tag text-amber-500 text-sm"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Category</span>
+                                    <span class="text-sm font-medium text-gray-700" id="modal-category-value">-</span>
+                                </div>
+                            </div>
+                            <div id="modal-rating" class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-star text-amber-400 text-sm"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Rating</span>
+                                    <span class="text-sm font-medium text-gray-700" id="modal-rating-value">-</span>
+                                </div>
+                            </div>
+                            <div id="modal-address" class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                                    <i class="fas fa-building text-gray-500 text-sm"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-gray-400 block">Address</span>
+                                    <span class="text-sm font-medium text-gray-700" id="modal-address-value">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Meeting Section (only for meeting_scheduled leads) -->
+                    <div id="modal-meeting-section" class="bg-emerald-50 rounded-2xl p-5 hidden">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-emerald-600 mb-4">
+                            <i class="fas fa-calendar-check mr-2"></i>Meeting Information
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0">
+                                    <i class="fas fa-calendar text-emerald-500 text-sm"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-emerald-600/70 block">Date</span>
+                                    <span class="text-sm font-medium text-emerald-800" id="modal-meeting-date">-</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0">
+                                    <i class="fas fa-clock text-emerald-500 text-sm"></i>
+                                </div>
+                                <div>
+                                    <span class="text-xs text-emerald-600/70 block">Time</span>
+                                    <span class="text-sm font-medium text-emerald-800" id="modal-meeting-time">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="modal-meeting-link-container" class="mt-4 hidden">
+                            <a id="modal-meeting-link" href="#" target="_blank" 
+                               class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition">
+                                <i class="fas fa-video"></i>
+                                Join Meeting
+                            </a>
+                            <a id="modal-calendar-link" href="#" target="_blank" 
+                               class="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-emerald-700 border border-emerald-200 rounded-xl font-medium hover:bg-emerald-50 transition ml-2">
+                                <i class="fas fa-calendar-plus"></i>
+                                Add to Calendar
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Research Summary Section -->
+                    <div id="modal-research-section" class="bg-gray-50 rounded-2xl p-5 hidden">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">
+                            <i class="fas fa-brain mr-2"></i>AI Research Summary
+                        </h3>
+                        <p id="modal-research-text" class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap"></p>
+                    </div>
+                    
+                    <!-- Email Info Section -->
+                    <div id="modal-email-section" class="bg-blue-50 rounded-2xl p-5 hidden">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-blue-600 mb-4">
+                            <i class="fas fa-envelope-circle-check mr-2"></i>Email Sent
+                        </h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-xs text-blue-600/70 block">Subject</span>
+                                <span class="text-sm font-medium text-blue-800" id="modal-email-subject">-</span>
+                            </div>
+                            <div>
+                                <span class="text-xs text-blue-600/70 block">Sent At</span>
+                                <span class="text-sm font-medium text-blue-800" id="modal-email-sent-at">-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notes Section -->
+                    <div id="modal-notes-section" class="bg-gray-50 rounded-2xl p-5">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">
+                            <i class="fas fa-sticky-note mr-2"></i>Notes
+                        </h3>
+                        <div id="modal-notes-list" class="space-y-3">
+                            <p class="text-sm text-gray-400 italic" id="modal-no-notes">No notes added yet</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Timeline Section -->
+                    <div class="bg-gray-50 rounded-2xl p-5">
+                        <h3 class="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4">
+                            <i class="fas fa-history mr-2"></i>Status History
+                        </h3>
+                        <div id="modal-status-history" class="space-y-2">
+                            <p class="text-sm text-gray-400 italic">Loading...</p>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+            
+            <!-- Modal Footer -->
+            <div class="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
+                <div class="text-xs text-gray-400">
+                    <span>Created: <span id="modal-created-at">-</span></span>
+                    <span class="mx-2">•</span>
+                    <span>Updated: <span id="modal-updated-at">-</span></span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="openAddNoteModal()" 
+                            class="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-xl font-medium text-sm transition flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        Add Note
+                    </button>
+                    <button id="modal-confirm-btn" onclick="confirmCurrentLead()" 
+                            class="px-5 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-xl font-medium text-sm transition flex items-center gap-2 shadow-lg shadow-green-500/30">
+                        <i class="fas fa-check"></i>
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add Note Modal -->
+    <div id="add-note-modal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeAddNoteModal()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100">
+                    <h3 class="text-lg font-bold text-obsidian">Add Note</h3>
+                    <p class="text-sm text-gray-500">Add a note to this lead</p>
+                </div>
+                <div class="px-6 py-4">
+                    <textarea id="note-input" rows="4" 
+                              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition resize-none"
+                              placeholder="Enter your note here..."></textarea>
+                </div>
+                <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+                    <button onclick="closeAddNoteModal()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium text-sm transition">
+                        Cancel
+                    </button>
+                    <button onclick="submitNote()" class="px-4 py-2 bg-primary hover:bg-sky-500 text-white rounded-lg font-medium text-sm transition">
+                        Save Note
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ═════════════════════ STATE ═════════════════════
+    let allLeads = [];
+    let filteredLeads = [];
+    let curFilter = null;
+    let searchQuery = '';
+
+    // ═════════════════════ INIT ═════════════════════
+    async function init() {
+        try {
+            await Clerk.load();
+            const nav = document.getElementById('nav-auth');
+            if (Clerk.user) {
+                Clerk.mountUserButton(nav, { afterSignOutUrl: '/' });
+            } else {
+                nav.innerHTML = '<a href="/auth/login" class="text-sm font-medium text-gray-600 hover:text-primary transition">Sign In</a>';
+            }
+
+            let user = null;
+            try {
+                const r = await fetch('/api/auth/user');
+                const d = await r.json();
+                if (d.authenticated && d.user) user = d.user;
+            } catch (_) {}
+
+            if (!user && Clerk.user) {
+                user = {
+                    name: Clerk.user.fullName || Clerk.user.firstName || 'User',
+                    email: Clerk.user.primaryEmailAddress?.emailAddress || '',
+                    picture: Clerk.user.imageUrl,
+                    sub: Clerk.user.id,
+                };
+            }
+
+            hide('loading-state');
+            if (!user) { show('not-auth'); return; }
+
+            show('content');
+            await loadAll();
+        } catch (e) {
+            console.error('Init error:', e);
+            hide('loading-state');
+            show('not-auth');
+        }
+    }
+
+    async function loadAll() {
+        await Promise.all([loadStats(), loadLeads()]);
+    }
+
+    // ═════════════════════ STATS ═════════════════════
+    async function loadStats() {
+        try {
+            const r = await fetch('/api/user/stats');
+            const d = await r.json();
+            if (!d.success) return;
+            const s = d.stats;
+
+            qs('#s-total').textContent = s.total || 0;
+            qs('#s-sdr').textContent = s.sdr_engaged || 0;
+            qs('#s-converting').textContent = s.converting || 0;
+            qs('#s-meetings').textContent = s.meetings_scheduled || 0;
+            qs('#s-converted').textContent = s.converted || 0;
+
+            renderFunnel(s);
+            renderCities(s.cities || []);
+        } catch (e) {
+            console.warn('Stats error:', e);
+        }
+    }
+
+    function renderFunnel(s) {
+        const total = s.total || 0;
+        if (!total) return;
+        qs('#funnel-empty').style.display = 'none';
+
+        const stages = [
+            { label: 'SDR Engagement', count: s.sdr_engagement || s.sdr_engaged || 0, color: 'from-blue-400 to-blue-500', bg: 'bg-blue-400', icon: 'bolt' },
+            { label: 'Converting to Lead', count: s.converting_to_lead || s.converting || 0, color: 'from-amber-400 to-amber-500', bg: 'bg-amber-400', icon: 'trending_up' },
+            { label: 'Meeting Scheduled', count: s.meetings_scheduled || 0, color: 'from-emerald-400 to-emerald-500', bg: 'bg-emerald-400', icon: 'event_available' },
+            { label: 'Confirmed', count: s.converted || 0, color: 'from-green-500 to-green-600', bg: 'bg-green-500', icon: 'check_circle' },
+        ];
+
+        qs('#funnel').innerHTML = stages.map((st, idx) => {
+            const pct = total > 0 ? Math.round((st.count / total) * 100) : 0;
+            const widthPct = Math.max(pct, 4); // min 4% for visibility
+            const convRate = idx > 0 && stages[idx-1].count > 0
+                ? Math.round((st.count / stages[idx-1].count) * 100) + '%'
+                : '';
+            return `
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 w-40 shrink-0">
+                    <span class="material-symbols-outlined text-base text-gray-400" style="font-variation-settings:'FILL'1">${st.icon}</span>
+                    <span class="text-xs text-gray-600 font-medium truncate">${st.label}</span>
+                </div>
+                <div class="flex-1">
+                    <div class="h-8 bg-gray-100 rounded-lg overflow-hidden relative">
+                        <div class="bar h-full bg-gradient-to-r ${st.color} flex items-center justify-end pr-3" style="width:${widthPct}%">
+                            ${st.count > 0 ? `<span class="text-xs font-bold text-white drop-shadow">${st.count}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <div class="w-14 text-right shrink-0">
+                    <span class="text-xs font-bold text-gray-500">${pct}%</span>
+                    ${convRate ? `<br><span class="text-[10px] text-gray-400">${convRate}</span>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderCities(cities) {
+        if (!cities.length) return;
+        qs('#cities-empty').style.display = 'none';
+        qs('#cities').innerHTML = cities.map(c => `
+            <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-sky-50 flex items-center justify-center">
+                        <i class="fas fa-map-marker-alt text-xs text-primary"></i>
+                    </div>
+                    <span class="text-sm font-medium">${esc(c)}</span>
+                </div>
+                <span class="text-xs text-gray-400">${countLeadsByCity(c)} leads</span>
+            </div>
+        `).join('');
+    }
+
+    function countLeadsByCity(city) {
+        return allLeads.filter(l => (l.business_city || '').toLowerCase() === city.toLowerCase()).length;
+    }
+
+    // ═════════════════════ LEADS ═════════════════════
+    async function loadLeads() {
+        try {
+            let url = '/api/leads/history';
+            if (curFilter) url += `?status=${curFilter}`;
+            const r = await fetch(url);
+            const d = await r.json();
+            allLeads = (d.success && d.leads) ? d.leads : [];
+            applyFilters();
+        } catch (e) {
+            console.error('Leads error:', e);
+            allLeads = [];
+            applyFilters();
+        }
+    }
+
+    function applyFilters() {
+        filteredLeads = allLeads;
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            filteredLeads = filteredLeads.filter(l =>
+                (l.business_name || '').toLowerCase().includes(q) ||
+                (l.business_city || '').toLowerCase().includes(q) ||
+                (l.business_category || '').toLowerCase().includes(q) ||
+                (l.research_summary || '').toLowerCase().includes(q)
+            );
+        }
+        renderLeads(filteredLeads);
+        renderTimeline(filteredLeads);
+    }
+
+    function renderLeads(leads) {
+        const grid = qs('#leads-grid');
+        const empty = qs('#leads-empty');
+
+        if (!leads.length) {
+            grid.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+        }
+        empty.classList.add('hidden');
+
+        grid.innerHTML = leads.map(l => {
+            const st = l.current_status || l.status || '';
+            const name = l.business_name || 'Unknown Business';
+            const city = l.business_city || '';
+            const phone = l.business_phone || '';
+            const email = l.business_email || l.contact_email || '';
+            const rating = l.business_rating ? parseFloat(l.business_rating).toFixed(1) : '';
+            const cat = (l.business_types && l.business_types[0]) || l.business_category || '';
+            const research = l.research_summary || '';
+            const created = l.created_at ? fmtDate(l.created_at) : '';
+            const updated = l.updated_at ? fmtDate(l.updated_at) : '';
+            const pillCls = pillClass(st);
+            const pillLbl = fmtStatus(st);
+            const hasMeeting = l.meeting_date;
+            const hasEmail = l.email_sent;
+            const leadId = l.lead_id || '';
+
+            return `
+            <div class="lead-card" data-lead-id="${esc(leadId)}" onclick="openLeadModal('${esc(leadId)}')"
+                 title="Click to view details">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1 flex-wrap">
+                            <h3 class="text-base font-bold truncate">${esc(name)}</h3>
+                            <span class="pill ${pillCls}">${pillLbl}</span>
+                        </div>
+                        ${city ? `<p class="text-xs text-gray-500 flex items-center gap-1"><i class="fas fa-map-marker-alt text-[10px] text-primary"></i> ${esc(city)}</p>` : ''}
+                    </div>
+                    ${rating ? `
+                    <div class="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg shrink-0">
+                        <i class="fas fa-star text-[10px] text-amber-400"></i>
+                        <span class="text-xs font-bold text-amber-700">${rating}</span>
+                    </div>` : ''}
+                </div>
+
+                <div class="flex flex-wrap gap-2 mb-3">
+                    ${cat ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-50 text-xs text-gray-600"><i class="fas fa-tag text-[9px] text-gray-400"></i>${esc(cat)}</span>` : ''}
+                    ${phone ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-50 text-xs text-gray-600"><i class="fas fa-phone text-[9px] text-gray-400"></i>${esc(phone)}</span>` : ''}
+                    ${email ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gray-50 text-xs text-gray-600"><i class="fas fa-envelope text-[9px] text-gray-400"></i>${esc(email)}</span>` : ''}
+                </div>
+
+                ${research ? `
+                <div class="bg-gray-50 rounded-lg p-3 mb-3">
+                    <p class="text-xs text-gray-500 font-medium mb-1">AI Research Summary</p>
+                    <p class="text-xs text-gray-600 line-clamp-3">${esc(research.substring(0, 300))}</p>
+                </div>` : ''}
+
+                <!-- Status indicators -->
+                <div class="flex items-center gap-3 text-[11px] text-gray-400 border-t border-gray-100 pt-3 mt-auto">
+                    ${hasEmail ? '<span class="flex items-center gap-1"><i class="fas fa-envelope-circle-check text-emerald-400"></i> Email Sent</span>' : ''}
+                    ${hasMeeting ? `<span class="flex items-center gap-1"><i class="fas fa-calendar-check text-blue-400"></i> ${fmtDate(l.meeting_date)}</span>` : ''}
+                    <span class="ml-auto flex items-center gap-1">
+                        <i class="fas fa-clock text-[9px]"></i>
+                        ${updated || created || 'N/A'}
+                    </span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function renderTimeline(leads) {
+        if (!leads.length) return;
+        qs('#timeline-empty').style.display = 'none';
+
+        const events = leads.slice(0, 20).map((l, idx) => {
+            const name = l.business_name || 'Unknown';
+            const st = l.current_status || l.status || '';
+            const time = l.updated_at || l.created_at;
+            const icon = timelineIcon(st);
+            const isLast = idx === Math.min(leads.length, 20) - 1;
+
+            return `
+            <div class="relative flex gap-4 pb-6 ${isLast ? '' : ''}">
+                <div class="flex flex-col items-center shrink-0">
+                    <div class="timeline-dot ${icon.dot}"></div>
+                    ${!isLast ? '<div class="flex-1 w-0.5 bg-gray-200 mt-1"></div>' : ''}
+                </div>
+                <div class="flex-1 min-w-0 -mt-0.5">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-sm font-semibold truncate">${esc(name)}</span>
+                        <span class="pill ${pillClass(st)} !text-[10px]">${fmtStatus(st)}</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-0.5">${time ? fmtDateTime(time) : ''}</p>
+                    ${l.research_summary ? `<p class="text-xs text-gray-500 mt-1 truncate">${esc(l.research_summary.substring(0,100))}</p>` : ''}
+                </div>
+            </div>`;
+        });
+
+        qs('#timeline-count').textContent = `Showing ${Math.min(leads.length, 20)} of ${leads.length}`;
+        qs('#timeline').innerHTML = events.join('');
+    }
+
+    // ═════════════════════ FILTER / SEARCH ═════════════════════
+    function setFilter(status) {
+        curFilter = status;
+        document.querySelectorAll('.tab[data-f]').forEach(btn => {
+            const active = (status === null && btn.dataset.f === 'all') || btn.dataset.f === status;
+            btn.className = `tab ${active ? 'tab-active' : 'tab-inactive'}`;
+        });
+        loadLeads();
+    }
+
+    function onSearch(val) {
+        searchQuery = val;
+        applyFilters();
+    }
+
+    // ═════════════════════ HELPERS ═════════════════════
+    function qs(sel) { return document.querySelector(sel); }
+    function show(id) { document.getElementById(id)?.classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+    function esc(t) {
+        if (!t) return '';
+        const d = document.createElement('div');
+        d.textContent = t;
+        return d.innerHTML;
+    }
+
+    function fmtDate(iso) {
+        try { return new Date(iso).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}); }
+        catch (_) { return iso || ''; }
+    }
+
+    function fmtDateTime(iso) {
+        try { return new Date(iso).toLocaleDateString('en-US', {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}); }
+        catch (_) { return ''; }
+    }
+
+    function pillClass(s) {
+        if (!s) return 'pill-sdr';
+        s = s.toUpperCase();
+        if (s.includes('CONFIRMED') && !s.includes('CONVERTING')) return 'pill-confirmed';
+        if (s.includes('MEETING')) return 'pill-meeting';
+        if (s.includes('CONVERT')) return 'pill-converting';
+        if (s.includes('SDR') || s.includes('ENGAGED')) return 'pill-sdr';
+        return 'pill-sdr';
+    }
+
+    function fmtStatus(s) {
+        if (!s) return 'Engaged';
+        s = s.toUpperCase();
+        if (s === 'CONFIRMED') return 'Confirmed';
+        if (s.includes('MEETING')) return 'Meeting Scheduled';
+        if (s.includes('CONVERTING')) return 'Converting';
+        if (s.includes('SDR') || s.includes('ENGAGED')) return 'SDR Engaged';
+        return s.replace(/_/g, ' ');
+    }
+
+    function timelineIcon(s) {
+        if (!s) return {dot: 'bg-blue-400'};
+        s = s.toUpperCase();
+        if (s === 'CONFIRMED') return {dot: 'bg-green-500'};
+        if (s.includes('MEETING')) return {dot: 'bg-emerald-400'};
+        if (s.includes('CONVERT')) return {dot: 'bg-amber-400'};
+        return {dot: 'bg-blue-400'};
+    }
+
+    // ═════════════════════ LEAD MODAL ═════════════════════
+    let currentLeadId = null;
+    let currentLeadData = null;
+
+    async function openLeadModal(leadId) {
+        if (!leadId) return;
+        currentLeadId = leadId;
+        
+        // Show modal with loading state
+        qs('#lead-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        
+        // Reset modal content
+        qs('#modal-business-name').textContent = 'Loading...';
+        qs('#modal-status-badge').textContent = '';
+        qs('#modal-meeting-section').classList.add('hidden');
+        qs('#modal-research-section').classList.add('hidden');
+        qs('#modal-email-section').classList.add('hidden');
+        
+        try {
+            const r = await fetch(`/api/leads/${leadId}`);
+            const d = await r.json();
+            
+            if (!d.success || !d.lead) {
+                alert('Failed to load lead details');
+                closeLeadModal();
+                return;
+            }
+            
+            currentLeadData = d.lead;
+            populateLeadModal(d.lead);
+            
+        } catch (e) {
+            console.error('Failed to load lead:', e);
+            alert('Failed to load lead details');
+            closeLeadModal();
+        }
+    }
+
+    function populateLeadModal(lead) {
+        const st = lead.current_status || lead.status || '';
+        const stUpper = st.toUpperCase();
+        
+        // Basic info
+        qs('#modal-business-name').textContent = lead.business_name || 'Unknown Business';
+        qs('#modal-status-badge').textContent = fmtStatus(st);
+        qs('#modal-status-badge').className = `pill ${pillClass(st)}`;
+        
+        // Update status icon
+        const iconEl = qs('#modal-status-icon');
+        if (stUpper === 'CONFIRMED') {
+            iconEl.className = 'w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center';
+            iconEl.innerHTML = '<span class="material-symbols-outlined text-xl text-green-500" style="font-variation-settings:\'FILL\'1">check_circle</span>';
+        } else if (stUpper.includes('MEETING')) {
+            iconEl.className = 'w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center';
+            iconEl.innerHTML = '<span class="material-symbols-outlined text-xl text-emerald-500" style="font-variation-settings:\'FILL\'1">event</span>';
+        } else if (stUpper.includes('CONVERT')) {
+            iconEl.className = 'w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center';
+            iconEl.innerHTML = '<span class="material-symbols-outlined text-xl text-amber-500" style="font-variation-settings:\'FILL\'1">trending_up</span>';
+        } else {
+            iconEl.className = 'w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center';
+            iconEl.innerHTML = '<span class="material-symbols-outlined text-xl text-blue-500" style="font-variation-settings:\'FILL\'1">business</span>';
+        }
+        
+        // Business information
+        qs('#modal-city-value').textContent = lead.business_city || '-';
+        qs('#modal-phone-value').textContent = lead.business_phone || '-';
+        qs('#modal-email-value').textContent = lead.business_email || lead.contact_email || '-';
+        
+        const cat = (lead.business_types && lead.business_types[0]) || lead.business_category || '-';
+        qs('#modal-category-value').textContent = cat;
+        
+        qs('#modal-rating-value').textContent = lead.business_rating ? parseFloat(lead.business_rating).toFixed(1) : '-';
+        qs('#modal-address-value').textContent = lead.business_address || '-';
+        
+        // Meeting section (only for meeting status)
+        if (stUpper.includes('MEETING') || lead.meeting_date) {
+            qs('#modal-meeting-section').classList.remove('hidden');
+            qs('#modal-meeting-date').textContent = lead.meeting_date ? fmtDate(lead.meeting_date) : '-';
+            qs('#modal-meeting-time').textContent = lead.meeting_time || '-';
+            
+            const meetLink = lead.meeting_meet_link || lead.meeting_calendar_link;
+            const calLink = lead.meeting_calendar_link;
+            
+            if (meetLink || calLink) {
+                qs('#modal-meeting-link-container').classList.remove('hidden');
+                if (meetLink) {
+                    qs('#modal-meeting-link').href = meetLink;
+                    qs('#modal-meeting-link').classList.remove('hidden');
+                } else {
+                    qs('#modal-meeting-link').classList.add('hidden');
+                }
+                if (calLink) {
+                    qs('#modal-calendar-link').href = calLink;
+                    qs('#modal-calendar-link').classList.remove('hidden');
+                } else {
+                    qs('#modal-calendar-link').classList.add('hidden');
+                }
+            } else {
+                qs('#modal-meeting-link-container').classList.add('hidden');
+            }
+        } else {
+            qs('#modal-meeting-section').classList.add('hidden');
+        }
+        
+        // Research summary
+        if (lead.research_summary) {
+            qs('#modal-research-section').classList.remove('hidden');
+            qs('#modal-research-text').textContent = lead.research_summary;
+        } else {
+            qs('#modal-research-section').classList.add('hidden');
+        }
+        
+        // Email section
+        if (lead.email_sent) {
+            qs('#modal-email-section').classList.remove('hidden');
+            qs('#modal-email-subject').textContent = lead.email_subject || '-';
+            qs('#modal-email-sent-at').textContent = lead.email_sent_at ? fmtDateTime(lead.email_sent_at) : '-';
+        } else {
+            qs('#modal-email-section').classList.add('hidden');
+        }
+        
+        // Notes
+        const notesContainer = qs('#modal-notes-list');
+        const notes = lead.notes || [];
+        if (notes.length) {
+            qs('#modal-no-notes').classList.add('hidden');
+            notesContainer.innerHTML = notes.map(n => `
+                <div class="bg-white rounded-lg p-3 border border-gray-100">
+                    <p class="text-sm text-gray-700">${esc(n.text || n)}</p>
+                    ${n.timestamp ? `<p class="text-xs text-gray-400 mt-1">${fmtDateTime(n.timestamp)}${n.user_email ? ` • ${esc(n.user_email)}` : ''}</p>` : ''}
+                </div>
+            `).join('');
+        } else {
+            qs('#modal-no-notes').classList.remove('hidden');
+            notesContainer.innerHTML = '<p class="text-sm text-gray-400 italic" id="modal-no-notes">No notes added yet</p>';
+        }
+        
+        // Status history
+        const history = lead.status_history || [];
+        const historyContainer = qs('#modal-status-history');
+        if (history.length) {
+            historyContainer.innerHTML = history.reverse().map(h => `
+                <div class="flex items-center gap-3 py-2">
+                    <div class="w-2 h-2 rounded-full ${timelineIcon(h.status).dot}"></div>
+                    <span class="text-sm font-medium">${fmtStatus(h.status)}</span>
+                    <span class="text-xs text-gray-400">${h.timestamp ? fmtDateTime(h.timestamp) : ''}</span>
+                </div>
+            `).join('');
+        } else {
+            historyContainer.innerHTML = `
+                <div class="flex items-center gap-3 py-2">
+                    <div class="w-2 h-2 rounded-full ${timelineIcon(st).dot}"></div>
+                    <span class="text-sm font-medium">${fmtStatus(st)}</span>
+                    <span class="text-xs text-gray-400">${lead.created_at ? fmtDateTime(lead.created_at) : 'Unknown'}</span>
+                </div>
+            `;
+        }
+        
+        // Timestamps
+        qs('#modal-created-at').textContent = lead.created_at ? fmtDateTime(lead.created_at) : '-';
+        qs('#modal-updated-at').textContent = lead.updated_at ? fmtDateTime(lead.updated_at) : '-';
+        
+        // Confirm button visibility (hide if already confirmed)
+        const confirmBtn = qs('#modal-confirm-btn');
+        if (stUpper === 'CONFIRMED') {
+            confirmBtn.disabled = true;
+            confirmBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            confirmBtn.innerHTML = '<i class="fas fa-check-double"></i> Already Confirmed';
+        } else {
+            confirmBtn.disabled = false;
+            confirmBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirm';
+        }
+    }
+
+    function closeLeadModal() {
+        qs('#lead-modal').classList.add('hidden');
+        document.body.style.overflow = '';
+        currentLeadId = null;
+        currentLeadData = null;
+    }
+
+    // ═════════════════════ ADD NOTE MODAL ═════════════════════
+    function openAddNoteModal() {
+        qs('#add-note-modal').classList.remove('hidden');
+        qs('#note-input').value = '';
+        qs('#note-input').focus();
+    }
+
+    function closeAddNoteModal() {
+        qs('#add-note-modal').classList.add('hidden');
+    }
+
+    async function submitNote() {
+        const note = qs('#note-input').value.trim();
+        if (!note) {
+            alert('Please enter a note');
+            return;
+        }
+        
+        if (!currentLeadId) {
+            alert('No lead selected');
+            return;
+        }
+        
+        try {
+            const r = await fetch(`/api/leads/${currentLeadId}/add_note`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ note })
+            });
+            
+            const d = await r.json();
+            
+            if (d.success) {
+                closeAddNoteModal();
+                // Reload the lead details to show the new note
+                await openLeadModal(currentLeadId);
+                // Show success message
+                showToast('Note added successfully!', 'success');
+            } else {
+                alert(d.error || 'Failed to add note');
+            }
+        } catch (e) {
+            console.error('Failed to add note:', e);
+            alert('Failed to add note. Please try again.');
+        }
+    }
+
+    // ═════════════════════ CONFIRM LEAD ═════════════════════
+    async function confirmCurrentLead() {
+        if (!currentLeadId) {
+            alert('No lead selected');
+            return;
+        }
+        
+        const confirmed = confirm('Are you sure you want to confirm this lead?\n\nThis will mark it as fully confirmed and complete.');
+        if (!confirmed) return;
+        
+        try {
+            const r = await fetch(`/api/leads/${currentLeadId}/confirm`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const d = await r.json();
+            
+            if (d.success) {
+                closeLeadModal();
+                // Switch to CONFIRMED tab and reload all leads
+                setFilter('CONFIRMED');
+                await loadStats();
+                showToast('Lead confirmed successfully!', 'success');
+            } else {
+                alert(d.error || 'Failed to confirm lead');
+            }
+        } catch (e) {
+            console.error('Failed to confirm lead:', e);
+            alert('Failed to confirm lead. Please try again.');
+        }
+    }
+
+    // ═════════════════════ TOAST NOTIFICATION ═════════════════════
+    function showToast(message, type = 'info') {
+        // Remove existing toast
+        const existing = document.querySelector('.toast-notification');
+        if (existing) existing.remove();
+        
+        const toast = document.createElement('div');
+        toast.className = 'toast-notification fixed bottom-4 right-4 z-[100] px-6 py-3 rounded-xl font-medium shadow-lg transition-all transform translate-y-0';
+        
+        if (type === 'success') {
+            toast.classList.add('bg-green-500', 'text-white');
+        } else if (type === 'error') {
+            toast.classList.add('bg-red-500', 'text-white');
+        } else {
+            toast.classList.add('bg-gray-800', 'text-white');
+        }
+        
+        toast.innerHTML = `<span>${esc(message)}</span>`;
+        document.body.appendChild(toast);
+        
+        // Animate in
+        setTimeout(() => toast.classList.add('opacity-100'), 10);
+        
+        // Remove after 3 seconds
+        setTimeout(() => {
+            toast.classList.add('opacity-0', 'translate-y-2');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (!qs('#add-note-modal').classList.contains('hidden')) {
+                closeAddNoteModal();
+            } else if (!qs('#lead-modal').classList.contains('hidden')) {
+                closeLeadModal();
+            }
+        }
+    });
+
+    // Boot
+    init();
+    </script>
+</body>
+</html>

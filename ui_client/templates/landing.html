@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>LeadPilot — AI-Powered Lead Generation Platform</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#38BDF8",
+                        "pearl": "#F8F8FF",
+                        "obsidian": "#0C0C0C",
+                        "deep-indigo": "#1e1b4b",
+                        "accent-gold": "#fbbf24",
+                        "sky-soft": "#f0f7ff",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "serif": ["Instrument Serif", "serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+    <style type="text/tailwindcss">
+        /* ===== GLOBAL ===== */
+        .grain-overlay {
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+        }
+        .mesh-gradient {
+            background: radial-gradient(at 0% 0%, rgba(56,189,248,0.1) 0, transparent 50%),
+                        radial-gradient(at 100% 0%, rgba(56,189,248,0.05) 0, transparent 50%),
+                        radial-gradient(at 50% 100%, #F8F8FF 0, transparent 50%);
+        }
+        .bg-mesh-white {
+            background-color: #ffffff;
+            background-image:
+                radial-gradient(at 0% 0%, hsla(210,100%,98%,1) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(202,100%,96%,1) 0, transparent 50%),
+                radial-gradient(at 50% 100%, hsla(215,100%,97%,1) 0, transparent 50%);
+        }
+
+        /* ===== NAV ===== */
+        .glass-nav {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(12,12,12,0.05);
+            box-shadow: 0 4px 30px rgba(0,0,0,0.03);
+        }
+
+        /* ===== BUTTONS ===== */
+        .tactile-cta {
+            background-color: #38BDF8;
+            box-shadow: 0 20px 40px -10px rgba(56,189,248,0.5), inset 0 -4px 0px rgba(0,0,0,0.1);
+            transition: all 0.2s cubic-bezier(0.175,0.885,0.32,1.275);
+        }
+        .tactile-cta:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 25px 50px -12px rgba(56,189,248,0.6), inset 0 -4px 0px rgba(0,0,0,0.1);
+        }
+        .tactile-cta:active {
+            transform: translateY(2px);
+            box-shadow: 0 10px 20px -5px rgba(56,189,248,0.4), inset 0 2px 0px rgba(0,0,0,0.1);
+        }
+        .hittable-button {
+            background-color: #38BDF8;
+            box-shadow: 0 10px 25px -5px rgba(56,189,248,0.4);
+            transition: all 0.2s cubic-bezier(0.175,0.885,0.32,1.275);
+        }
+        .hittable-button:hover { transform: translateY(-2px); box-shadow: 0 15px 30px -5px rgba(56,189,248,0.5); }
+        .hittable-button:active { transform: translateY(1px); }
+
+        /* ===== CARDS ===== */
+        .glass-card-light {
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.05);
+        }
+        .frosted-crystal {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0,0,0,0.08);
+            box-shadow: 0 4px 24px -1px rgba(0,0,0,0.03);
+        }
+        .glass-card {
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(24px);
+            border: 1px solid #E2E8F0;
+            box-shadow: 0 10px 30px -5px rgba(0,0,0,0.04), 0 4px 6px -2px rgba(0,0,0,0.02);
+        }
+        .tilt-card {
+            transition: transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+            perspective: 1000px;
+        }
+        .tilt-card:hover { transform: translateY(-8px) rotateX(4deg) rotateY(-2deg); }
+        .border-beam { position: relative; overflow: hidden; }
+        .border-beam::after {
+            content: "";
+            position: absolute;
+            inset: -1px;
+            background: linear-gradient(90deg, transparent, #38BDF8, transparent);
+            z-index: -1;
+            padding: 1px;
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .border-beam:hover::after { opacity: 0.4; }
+
+        /* ===== MISC ===== */
+        .cyan-glow { box-shadow: 0 0 40px rgba(56,189,248,0.2); }
+        .tracing-beam {
+            width: 2px;
+            background: linear-gradient(to bottom, #38BDF8, transparent);
+            box-shadow: 0 0 15px rgba(56,189,248,0.3);
+        }
+        .instrument-serif { font-family: "Instrument Serif", serif; }
+
+        /* FAQ accordion */
+        .faq-answer { max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.35s ease; padding-bottom: 0; }
+        .faq-item.open .faq-answer { max-height: 200px; padding-bottom: 2rem; }
+        .faq-item.open .faq-chevron { transform: rotate(180deg); }
+        .faq-chevron { transition: transform 0.3s ease; }
+
+        /* Pricing toggle */
+        .pricing-toggle-active { background: white; color: #0C0C0C; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; }
+
+        /* Scroll reveal */
+        .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1); }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
+
+        /* Number count up */
+        .count-up { display: inline-block; }
+    </style>
+
+    <!-- Clerk SDK -->
+    <script
+        async
+        crossorigin="anonymous"
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://adequate-stinkbug-74.clerk.accounts.dev/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+        type="text/javascript"
+    ></script>
+</head>
+
+<body class="bg-pearl font-display text-obsidian selection:bg-primary/30 overflow-x-hidden">
+
+<!-- Grain Overlay -->
+<div class="fixed inset-0 grain-overlay z-50"></div>
+
+<!-- ============================================================ -->
+<!-- NAVIGATION -->
+<!-- ============================================================ -->
+<nav class="fixed top-0 left-0 right-0 z-40 px-4 sm:px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between glass-nav rounded-2xl px-6 sm:px-8 py-3">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-3xl">rocket_launch</span>
+            <span class="text-xl font-black tracking-tighter text-obsidian">LEADPILOT</span>
+        </div>
+        <div class="hidden md:flex items-center gap-10">
+            <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#features">Features</a>
+            <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#how-it-works">How It Works</a>
+            <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#pricing">Pricing</a>
+            <a class="text-sm font-semibold text-slate-600 hover:text-primary transition-colors" href="#faq">FAQ</a>
+        </div>
+        <div class="flex items-center gap-4" id="nav-auth">
+            <button onclick="goToLogin()" class="hidden sm:block text-sm font-semibold text-slate-600 px-4 py-2 hover:text-primary transition-colors">Log In</button>
+            <button onclick="goToSignup()" class="tactile-cta text-white font-bold text-sm px-6 py-2.5 rounded-full">Get Started</button>
+        </div>
+    </div>
+</nav>
+
+<!-- ============================================================ -->
+<!-- SECTION 1: HERO -->
+<!-- ============================================================ -->
+<main class="relative pt-32 min-h-screen mesh-gradient flex flex-col items-center">
+    <!-- Tracing Beam (desktop) -->
+    <div class="fixed left-12 top-0 bottom-0 hidden lg:flex flex-col items-center z-10">
+        <div class="tracing-beam h-1/3"></div>
+        <div class="size-3 rounded-full bg-primary mt-[-6px] shadow-[0_0_10px_rgba(56,189,248,0.8)]"></div>
+        <div class="h-2/3 w-[1px] bg-slate-200"></div>
+    </div>
+
+    <section class="max-w-6xl mx-auto px-6 text-center z-20">
+        <!-- Badge -->
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-slate-200 text-primary text-xs font-bold uppercase tracking-widest mb-8 shadow-sm reveal">
+            <span class="flex h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+            AI-Powered Lead Generation — Now Live
+        </div>
+
+        <!-- Headline -->
+        <h1 class="font-serif text-6xl sm:text-7xl md:text-9xl text-obsidian leading-[0.9] mb-8 tracking-[-0.04em] reveal">
+            Find Leads.<br/>
+            <span class="italic text-primary">Close Deals.</span>
+        </h1>
+
+        <!-- Subheadline -->
+        <p class="max-w-2xl mx-auto text-lg md:text-xl text-slate-500 mb-12 leading-relaxed reveal">
+            LeadPilot deploys AI agents that find, qualify, and convert local businesses into booked meetings — automatically.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-6 mb-12 reveal">
+            <button onclick="goToSignup()" class="tactile-cta text-white px-10 py-5 rounded-full text-lg font-black tracking-tight flex items-center gap-2 group">
+                Start Your Free Pilot
+                <span class="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+            </button>
+            <button onclick="scrollToSection('features')" class="bg-white border border-slate-200 hover:border-slate-300 px-10 py-5 rounded-full text-lg font-bold transition-all shadow-sm">
+                Explore Features
+            </button>
+        </div>
+
+        <!-- Trust badges -->
+        <div class="flex flex-wrap items-center justify-center gap-6 mb-24 reveal">
+            <span class="flex items-center gap-2 text-sm text-slate-400"><span class="material-symbols-outlined text-emerald-500 text-base">check_circle</span> No credit card required</span>
+            <span class="flex items-center gap-2 text-sm text-slate-400"><span class="material-symbols-outlined text-emerald-500 text-base">check_circle</span> Free forever plan</span>
+            <span class="flex items-center gap-2 text-sm text-slate-400"><span class="material-symbols-outlined text-emerald-500 text-base">check_circle</span> Setup in 2 minutes</span>
+        </div>
+
+        <!-- Product Visual -->
+        <div class="relative w-full max-w-5xl mx-auto mb-20 group reveal">
+            <div class="absolute -inset-4 bg-primary/10 blur-3xl rounded-[3rem] opacity-40 group-hover:opacity-60 transition-opacity"></div>
+            <div class="glass-card-light rounded-[2.5rem] p-4 relative overflow-hidden cyan-glow">
+                <div class="bg-white/40 rounded-3xl w-full aspect-video border border-white/60 flex items-center justify-center relative overflow-hidden">
+                    <img alt="LeadPilot Dashboard Interface" class="absolute inset-0 w-full h-full object-cover opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1j_NPkKFhp6saIplLYrcJrq5BUemMZAlCoMhKkTadgHYv1KI1MCs03-gAfYJ0x7W21WfGdK-RkfAyoDkfQ1W4RsiqP34mB3ebVNoTV-Hevl9UMehe5WvGnkywjWYSk2EIkyIGuSRftx-frzP7NioqsMaKsX-HwlQ9MzDdATeyPOpfB3WzjVs6xayHlyvC5mG4fuLTcsMcrPGdJ3arl-QWg5mCzXubNDGJVAhnZU5PjtlOzHwltuNGI8LhG2AnBte7Nk9U7buuTb9T"/>
+
+                    <!-- Floating badge: Hot Leads -->
+                    <div class="absolute top-8 sm:top-12 left-6 sm:left-12 glass-card-light p-3 sm:p-4 rounded-2xl flex items-center gap-3 sm:gap-4 border-white">
+                        <div class="size-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary">local_fire_department</span>
+                        </div>
+                        <div class="text-left">
+                            <div class="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">AI Signal</div>
+                            <div class="text-base sm:text-lg font-black text-obsidian">12 Hot Leads Found</div>
+                        </div>
+                    </div>
+
+                    <!-- Floating badge: Conversion -->
+                    <div class="absolute bottom-12 sm:bottom-16 right-6 sm:right-12 glass-card-light p-3 sm:p-4 rounded-2xl flex items-center gap-3 sm:gap-4 border-white">
+                        <div class="size-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-emerald-500">trending_up</span>
+                        </div>
+                        <div class="text-left">
+                            <div class="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">Conversion Rate</div>
+                            <div class="text-base sm:text-lg font-black text-obsidian">+24.8% Increase</div>
+                        </div>
+                    </div>
+
+                    <!-- Play button -->
+                    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                        <div class="size-20 rounded-full bg-white backdrop-blur-xl border border-white/50 shadow-xl flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-primary text-4xl translate-x-1">play_arrow</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 2: SOCIAL PROOF MINI-BAR -->
+    <!-- ============================================================ -->
+    <section class="w-full border-t border-slate-200 bg-white/60 backdrop-blur-md py-8 reveal">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-center gap-8">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Trusted by sales teams worldwide</span>
+            <div class="flex flex-wrap justify-center gap-8 text-slate-300 text-lg font-bold">
+                <span>TechCorp</span><span>GrowthLabs</span><span>VentureX</span><span>ScaleUp Inc</span><span>ProspectAI</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 3: BENTO STATS GRID -->
+    <!-- ============================================================ -->
+    <section class="w-full bg-mesh-white py-24" id="stats">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 reveal">
+                <h2 class="instrument-serif text-4xl md:text-6xl italic text-obsidian mb-4">Numbers That Define Excellence</h2>
+                <p class="text-slate-500 text-lg">Real metrics from real LeadPilot deployments</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- 30,000+ -->
+                <div class="frosted-crystal p-10 rounded-[2rem] border-beam group transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 reveal">
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="size-12 rounded-2xl bg-primary/5 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary text-3xl">hub</span>
+                        </div>
+                        <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">trending_up</span> +25%
+                        </span>
+                    </div>
+                    <p class="text-slate-400 text-xs font-bold mb-2 uppercase tracking-widest">Leads Generated</p>
+                    <h3 class="text-5xl font-bold text-obsidian tracking-tighter"><span class="count-up" data-target="30000">0</span>+</h3>
+                </div>
+
+                <!-- 400% ROI (wide) -->
+                <div class="md:col-span-2 frosted-crystal p-10 rounded-[2rem] border-beam group transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 overflow-hidden relative reveal">
+                    <div class="relative z-10 h-full flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-start mb-6">
+                                <div class="size-12 rounded-2xl bg-primary/5 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-primary text-3xl">query_stats</span>
+                                </div>
+                                <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-xs">trending_up</span> +12%
+                                </span>
+                            </div>
+                            <p class="text-slate-400 text-xs font-bold mb-2 uppercase tracking-widest">Average ROI</p>
+                            <h3 class="text-5xl font-bold text-obsidian tracking-tighter"><span class="count-up" data-target="400">0</span>%</h3>
+                        </div>
+                        <div class="mt-8 h-16 w-full flex items-end gap-1.5 px-1">
+                            <div class="w-full bg-primary/10 h-[20%] rounded-md"></div>
+                            <div class="w-full bg-primary/15 h-[45%] rounded-md"></div>
+                            <div class="w-full bg-primary/20 h-[35%] rounded-md"></div>
+                            <div class="w-full bg-primary/30 h-[70%] rounded-md"></div>
+                            <div class="w-full bg-primary/40 h-[85%] rounded-md"></div>
+                            <div class="w-full bg-primary h-full rounded-md shadow-lg shadow-primary/20"></div>
+                        </div>
+                    </div>
+                    <div class="absolute -right-8 -bottom-8 opacity-[0.03] pointer-events-none">
+                        <span class="material-symbols-outlined text-[200px] text-obsidian">insights</span>
+                    </div>
+                </div>
+
+                <!-- 12.5k Meetings -->
+                <div class="frosted-crystal p-10 rounded-[2rem] border-beam group transition-all duration-300 hover:shadow-xl hover:shadow-primary/5 reveal">
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="size-12 rounded-2xl bg-primary/5 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary text-3xl">event_available</span>
+                        </div>
+                        <span class="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1">
+                            <span class="material-symbols-outlined text-xs">trending_up</span> +18%
+                        </span>
+                    </div>
+                    <p class="text-slate-400 text-xs font-bold mb-2 uppercase tracking-widest">Meetings Booked</p>
+                    <h3 class="text-5xl font-bold text-obsidian tracking-tighter">12.5k</h3>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 4: HOW IT WORKS -->
+    <!-- ============================================================ -->
+    <section class="w-full py-24 bg-white" id="how-it-works">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="text-center mb-20 reveal">
+                <h2 class="instrument-serif text-4xl md:text-6xl italic text-obsidian mb-4">From Search to Signed</h2>
+                <p class="text-slate-500 text-lg">In minutes, not months</p>
+            </div>
+
+            <div class="relative">
+                <!-- Vertical line -->
+                <div class="absolute left-8 top-0 bottom-0 w-[2px] bg-gradient-to-b from-primary via-primary/40 to-transparent hidden sm:block"></div>
+
+                <!-- Step 1 -->
+                <div class="flex gap-8 mb-16 reveal">
+                    <div class="flex-shrink-0 size-16 rounded-full bg-primary text-white flex items-center justify-center font-serif text-2xl font-bold shadow-lg shadow-primary/20 relative z-10">1</div>
+                    <div>
+                        <h3 class="text-2xl font-bold text-obsidian mb-2">Define Your Target</h3>
+                        <p class="text-slate-500 leading-relaxed">Tell LeadPilot the city and business type. Our AI maps the entire local market instantly using Google Maps.</p>
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="flex gap-8 mb-16 reveal">
+                    <div class="flex-shrink-0 size-16 rounded-full bg-primary text-white flex items-center justify-center font-serif text-2xl font-bold shadow-lg shadow-primary/20 relative z-10">2</div>
+                    <div>
+                        <h3 class="text-2xl font-bold text-obsidian mb-2">AI Agents Get to Work</h3>
+                        <p class="text-slate-500 leading-relaxed">Lead Finder scans Google Maps. SDR Agent crafts personalized outreach. Lead Manager qualifies. All without you lifting a finger.</p>
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="flex gap-8 mb-16 reveal">
+                    <div class="flex-shrink-0 size-16 rounded-full bg-primary text-white flex items-center justify-center font-serif text-2xl font-bold shadow-lg shadow-primary/20 relative z-10">3</div>
+                    <div>
+                        <h3 class="text-2xl font-bold text-obsidian mb-2">Outreach Goes Out</h3>
+                        <p class="text-slate-500 leading-relaxed">Hyper-personalized emails land in inboxes. Reply tracking monitors every response in real time.</p>
+                    </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div class="flex gap-8 reveal">
+                    <div class="flex-shrink-0 size-16 rounded-full bg-primary text-white flex items-center justify-center font-serif text-2xl font-bold shadow-lg shadow-primary/20 relative z-10">4</div>
+                    <div>
+                        <h3 class="text-2xl font-bold text-obsidian mb-2">Meetings Get Booked</h3>
+                        <p class="text-slate-500 leading-relaxed">When a lead shows interest, LeadPilot schedules the meeting directly on your calendar. Zero back-and-forth.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 5: FEATURES DEEP DIVE -->
+    <!-- ============================================================ -->
+    <section class="w-full bg-mesh-white py-24" id="features">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8 reveal">
+                <div>
+                    <h2 class="text-4xl md:text-5xl font-bold mb-6 text-obsidian">Features Deep-Dive</h2>
+                    <div class="flex flex-wrap gap-3">
+                        <span class="px-5 py-2 rounded-full bg-primary text-white text-xs font-bold shadow-md shadow-primary/20">Gemini 2.0</span>
+                        <span class="px-5 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs font-bold">Real-time Data</span>
+                        <span class="px-5 py-2 rounded-full bg-white border border-slate-200 text-slate-600 text-xs font-bold">Autonomous Agents</span>
+                    </div>
+                </div>
+                <p class="text-slate-500 text-lg max-w-md leading-relaxed">
+                    Four intelligent agents working in perfect harmony to handle everything from prospecting to closing.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+                <!-- Lead Finder -->
+                <div class="tilt-card group relative p-10 rounded-[2.5rem] frosted-crystal reveal">
+                    <div class="size-16 bg-blue-50 rounded-2xl flex items-center justify-center text-primary mb-8 shadow-inner shadow-blue-100/50">
+                        <span class="material-symbols-outlined text-4xl">person_search</span>
+                    </div>
+                    <h4 class="font-serif text-3xl md:text-4xl mb-4 italic text-obsidian">Lead Finder Agent</h4>
+                    <p class="text-slate-500 text-base leading-relaxed mb-10">
+                        Scans Google Maps in real-time. Captures name, phone, address, website, rating — every detail stored in BigQuery.
+                    </p>
+                    <div class="pt-8 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-xs font-extrabold text-primary tracking-widest flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm font-bold">bolt</span> AUTO-DISCOVERY
+                        </span>
+                        <div class="size-12 rounded-full bg-primary text-white flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+                            <span class="material-symbols-outlined text-2xl">arrow_forward</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SDR Agent -->
+                <div class="tilt-card group relative p-10 rounded-[2.5rem] frosted-crystal reveal">
+                    <div class="size-16 bg-blue-50 rounded-2xl flex items-center justify-center text-primary mb-8 shadow-inner shadow-blue-100/50">
+                        <span class="material-symbols-outlined text-4xl">smart_toy</span>
+                    </div>
+                    <h4 class="font-serif text-3xl md:text-4xl mb-4 italic text-obsidian">Autonomous SDR</h4>
+                    <p class="text-slate-500 text-base leading-relaxed mb-10">
+                        Gemini AI crafts personalized cold emails based on each business's unique profile. Not templates — real research.
+                    </p>
+                    <div class="pt-8 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-xs font-extrabold text-primary tracking-widest flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm font-bold">mail</span> MULTI-CHANNEL
+                        </span>
+                        <div class="size-12 rounded-full bg-primary text-white flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+                            <span class="material-symbols-outlined text-2xl">arrow_forward</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Calendar -->
+                <div class="tilt-card group relative p-10 rounded-[2.5rem] frosted-crystal reveal">
+                    <div class="size-16 bg-blue-50 rounded-2xl flex items-center justify-center text-primary mb-8 shadow-inner shadow-blue-100/50">
+                        <span class="material-symbols-outlined text-4xl">calendar_month</span>
+                    </div>
+                    <h4 class="font-serif text-3xl md:text-4xl mb-4 italic text-obsidian">Calendar Concierge</h4>
+                    <p class="text-slate-500 text-base leading-relaxed mb-10">
+                        Automatically handles objections and books qualified meetings directly into your calendar.
+                    </p>
+                    <div class="pt-8 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-xs font-extrabold text-primary tracking-widest flex items-center gap-2">
+                            <span class="material-symbols-outlined text-sm font-bold">schedule</span> ZERO FRICTION
+                        </span>
+                        <div class="size-12 rounded-full bg-primary text-white flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+                            <span class="material-symbols-outlined text-2xl">arrow_forward</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 6: PRICING -->
+    <!-- ============================================================ -->
+    <section class="w-full bg-white py-24" id="pricing">
+        <div class="max-w-6xl mx-auto px-6 text-center">
+            <div class="reveal">
+                <h2 class="instrument-serif text-4xl md:text-6xl italic text-obsidian mb-6">
+                    Precision Pricing for <span class="text-primary not-italic font-display font-black">2026</span>
+                </h2>
+                <p class="text-slate-500 text-lg max-w-2xl mx-auto mb-12">
+                    Transparent plans built for professional outbound teams. No hidden fees.
+                </p>
+            </div>
+
+            <!-- Toggle -->
+            <div class="inline-flex p-1 bg-slate-50 border border-slate-200 rounded-full mb-20 reveal" id="pricing-toggle">
+                <button class="pricing-toggle-btn px-8 py-2.5 rounded-full text-sm font-bold pricing-toggle-active" data-plan="monthly">Monthly</button>
+                <button class="pricing-toggle-btn px-8 py-2.5 rounded-full text-sm font-semibold text-slate-500 hover:text-obsidian transition-colors" data-plan="yearly">Yearly <span class="text-primary font-bold ml-1">(-25%)</span></button>
+            </div>
+
+            <!-- Cards -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch max-w-6xl mx-auto">
+                <!-- Starter -->
+                <div class="glass-card flex flex-col p-10 rounded-[2rem] text-left reveal">
+                    <div class="mb-10">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-6">
+                            <span class="material-symbols-outlined text-slate-400">bolt</span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-obsidian mb-2">Starter</h3>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-4xl font-black text-obsidian pricing-amount" data-monthly="$0" data-yearly="$0">$0</span>
+                            <span class="text-slate-400 text-sm font-medium">/month</span>
+                        </div>
+                        <p class="text-slate-400 text-sm mt-1">Free forever</p>
+                    </div>
+                    <ul class="flex-1 space-y-5 mb-10">
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> 50 leads/month</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> Lead Finder Agent</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> Basic email outreach (10/day)</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> BigQuery export</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-300"><span class="material-symbols-outlined text-slate-300 text-[20px]">close</span> SDR Agent</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-300"><span class="material-symbols-outlined text-slate-300 text-[20px]">close</span> Calendar integration</li>
+                    </ul>
+                    <button onclick="goToSignup()" class="w-full py-4 rounded-xl border border-slate-200 text-obsidian font-bold hover:bg-slate-50 transition-colors">Get Started Free</button>
+                </div>
+
+                <!-- Growth (Recommended) -->
+                <div class="glass-card flex flex-col p-10 rounded-[2rem] text-left border-primary/40 relative z-10 lg:scale-105 shadow-xl reveal">
+                    <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-accent-gold text-obsidian text-[10px] font-black tracking-[0.15em] px-4 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm border border-white">
+                        <span class="material-symbols-outlined text-[14px]">stars</span> MOST POPULAR
+                    </div>
+                    <div class="mb-10">
+                        <div class="w-12 h-12 rounded-2xl bg-primary/5 flex items-center justify-center mb-6">
+                            <span class="material-symbols-outlined text-primary">auto_awesome</span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-obsidian mb-2">Growth</h3>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-4xl font-black text-obsidian pricing-amount" data-monthly="$49" data-yearly="$37">$49</span>
+                            <span class="text-slate-400 text-sm font-medium">/month</span>
+                        </div>
+                    </div>
+                    <ul class="flex-1 space-y-5 mb-10">
+                        <li class="flex items-center gap-3 text-sm text-obsidian font-medium"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> 500 leads/month</li>
+                        <li class="flex items-center gap-3 text-sm text-obsidian font-medium"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> All 4 AI Agents</li>
+                        <li class="flex items-center gap-3 text-sm text-obsidian font-medium"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> Advanced personalization</li>
+                        <li class="flex items-center gap-3 text-sm text-obsidian font-medium"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> Email reply tracking</li>
+                        <li class="flex items-center gap-3 text-sm text-obsidian font-medium"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> Calendar integration</li>
+                        <li class="flex items-center gap-3 text-sm text-obsidian font-medium"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> Priority support</li>
+                    </ul>
+                    <button onclick="goToSignup()" class="hittable-button w-full py-4 rounded-xl text-white font-bold text-lg">Start Free Trial</button>
+                </div>
+
+                <!-- Enterprise -->
+                <div class="glass-card flex flex-col p-10 rounded-[2rem] text-left reveal">
+                    <div class="mb-10">
+                        <div class="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mb-6">
+                            <span class="material-symbols-outlined text-slate-400">apartment</span>
+                        </div>
+                        <h3 class="text-2xl font-bold text-obsidian mb-2">Enterprise</h3>
+                        <div class="flex items-baseline gap-1">
+                            <span class="text-4xl font-black text-obsidian">Custom</span>
+                        </div>
+                    </div>
+                    <ul class="flex-1 space-y-5 mb-10">
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> Unlimited leads</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> Custom AI fine-tuning</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> White-label dashboard</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> Dedicated account manager</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> API access + webhooks</li>
+                        <li class="flex items-center gap-3 text-sm text-slate-600"><span class="material-symbols-outlined text-primary text-[20px] font-bold">check</span> SLA 99.9% uptime</li>
+                    </ul>
+                    <button onclick="window.location.href='mailto:kundarvinayak2004@gmail.com'" class="w-full py-4 rounded-xl border border-slate-200 text-obsidian font-bold hover:bg-slate-50 transition-colors">Contact Sales</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 7: TESTIMONIALS -->
+    <!-- ============================================================ -->
+    <section class="w-full bg-mesh-white py-24">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center mb-16 reveal">
+                <h2 class="instrument-serif text-4xl md:text-5xl italic text-obsidian mb-4">Sales Teams Love LeadPilot</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="frosted-crystal p-8 rounded-[2rem] hover:shadow-lg transition-all reveal">
+                    <div class="text-amber-400 mb-4 text-lg">★★★★★</div>
+                    <p class="text-slate-600 italic mb-6 leading-relaxed">"Found 200 qualified leads in our city in under 10 minutes. Our SDR team couldn't believe it wasn't magic."</p>
+                    <div class="flex items-center gap-3">
+                        <div class="size-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center">P</div>
+                        <div><div class="font-bold text-sm text-obsidian">Priya S.</div><div class="text-xs text-slate-400">Head of Sales, TechGrowth</div></div>
+                    </div>
+                </div>
+                <div class="frosted-crystal p-8 rounded-[2rem] hover:shadow-lg transition-all reveal">
+                    <div class="text-amber-400 mb-4 text-lg">★★★★★</div>
+                    <p class="text-slate-600 italic mb-6 leading-relaxed">"The personalization in those AI emails is insane. Our open rate went from 12% to 41% in the first week."</p>
+                    <div class="flex items-center gap-3">
+                        <div class="size-10 rounded-full bg-emerald-500/10 text-emerald-600 font-bold flex items-center justify-center">M</div>
+                        <div><div class="font-bold text-sm text-obsidian">Marcus T.</div><div class="text-xs text-slate-400">Founder, VentureScale</div></div>
+                    </div>
+                </div>
+                <div class="frosted-crystal p-8 rounded-[2rem] hover:shadow-lg transition-all reveal">
+                    <div class="text-amber-400 mb-4 text-lg">★★★★★</div>
+                    <p class="text-slate-600 italic mb-6 leading-relaxed">"We booked 8 demo calls in the first 3 days. LeadPilot paid for itself 50x over in the first month."</p>
+                    <div class="flex items-center gap-3">
+                        <div class="size-10 rounded-full bg-violet-500/10 text-violet-600 font-bold flex items-center justify-center">A</div>
+                        <div><div class="font-bold text-sm text-obsidian">Ananya R.</div><div class="text-xs text-slate-400">Sales Director, ProspectHub</div></div>
+                    </div>
+                </div>
+                <div class="frosted-crystal p-8 rounded-[2rem] hover:shadow-lg transition-all reveal">
+                    <div class="text-amber-400 mb-4 text-lg">★★★★★</div>
+                    <p class="text-slate-600 italic mb-6 leading-relaxed">"The BigQuery integration means our entire pipeline is visible and trackable. Finally, real sales intelligence."</p>
+                    <div class="flex items-center gap-3">
+                        <div class="size-10 rounded-full bg-orange-500/10 text-orange-600 font-bold flex items-center justify-center">D</div>
+                        <div><div class="font-bold text-sm text-obsidian">David K.</div><div class="text-xs text-slate-400">RevOps Manager, ScaleForce</div></div>
+                    </div>
+                </div>
+                <div class="frosted-crystal p-8 rounded-[2rem] hover:shadow-lg transition-all reveal">
+                    <div class="text-amber-400 mb-4 text-lg">★★★★★</div>
+                    <p class="text-slate-600 italic mb-6 leading-relaxed">"Set it up in 15 minutes. By evening we had 3 meetings booked with restaurant chains in our area."</p>
+                    <div class="flex items-center gap-3">
+                        <div class="size-10 rounded-full bg-pink-500/10 text-pink-600 font-bold flex items-center justify-center">S</div>
+                        <div><div class="font-bold text-sm text-obsidian">Sofia M.</div><div class="text-xs text-slate-400">Business Dev, LocalGrowth Co</div></div>
+                    </div>
+                </div>
+                <div class="frosted-crystal p-8 rounded-[2rem] hover:shadow-lg transition-all reveal">
+                    <div class="text-amber-400 mb-4 text-lg">★★★★★</div>
+                    <p class="text-slate-600 italic mb-6 leading-relaxed">"LeadPilot isn't a tool — it's a full sales team replacement for early-stage startups. Absolutely game-changing."</p>
+                    <div class="flex items-center gap-3">
+                        <div class="size-10 rounded-full bg-cyan-500/10 text-cyan-600 font-bold flex items-center justify-center">R</div>
+                        <div><div class="font-bold text-sm text-obsidian">Raj P.</div><div class="text-xs text-slate-400">CEO, StartupBoost</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 8: FAQ -->
+    <!-- ============================================================ -->
+    <section class="w-full bg-white py-24" id="faq">
+        <div class="max-w-4xl mx-auto px-6">
+            <div class="text-center mb-20 reveal">
+                <h2 class="instrument-serif text-4xl md:text-5xl italic text-obsidian">Common Inquiries</h2>
+            </div>
+            <div class="space-y-0 border-t border-slate-200" id="faq-container">
+                <div class="faq-item border-b border-slate-100 reveal">
+                    <button class="faq-toggle flex items-center justify-between w-full py-8 text-left group">
+                        <span class="text-lg md:text-xl text-black font-bold tracking-tight pr-4">How does LeadPilot find businesses?</span>
+                        <span class="material-symbols-outlined text-slate-400 group-hover:text-obsidian transition-colors faq-chevron flex-shrink-0">expand_more</span>
+                    </button>
+                    <div class="faq-answer text-slate-500 leading-relaxed text-sm max-w-3xl">
+                        Uses Google Maps Places API to search by city and business type. Captures name, phone, address, website, rating, and operating hours — all stored securely in BigQuery.
+                    </div>
+                </div>
+                <div class="faq-item border-b border-slate-100 reveal">
+                    <button class="faq-toggle flex items-center justify-between w-full py-8 text-left group">
+                        <span class="text-lg md:text-xl text-black font-bold tracking-tight pr-4">Do I need to write any emails myself?</span>
+                        <span class="material-symbols-outlined text-slate-400 group-hover:text-obsidian transition-colors faq-chevron flex-shrink-0">expand_more</span>
+                    </button>
+                    <div class="faq-answer text-slate-500 leading-relaxed text-sm max-w-3xl">
+                        No. The SDR Agent uses Gemini AI to write hyper-personalized emails based on each business's unique profile, online presence, and rating. Not templates — real research.
+                    </div>
+                </div>
+                <div class="faq-item border-b border-slate-100 reveal">
+                    <button class="faq-toggle flex items-center justify-between w-full py-8 text-left group">
+                        <span class="text-lg md:text-xl text-black font-bold tracking-tight pr-4">Where is my data stored?</span>
+                        <span class="material-symbols-outlined text-slate-400 group-hover:text-obsidian transition-colors faq-chevron flex-shrink-0">expand_more</span>
+                    </button>
+                    <div class="faq-answer text-slate-500 leading-relaxed text-sm max-w-3xl">
+                        All leads are stored securely in Google BigQuery under your own GCP project. You own your data completely.
+                    </div>
+                </div>
+                <div class="faq-item border-b border-slate-100 reveal">
+                    <button class="faq-toggle flex items-center justify-between w-full py-8 text-left group">
+                        <span class="text-lg md:text-xl text-black font-bold tracking-tight pr-4">Does it really work without human involvement?</span>
+                        <span class="material-symbols-outlined text-slate-400 group-hover:text-obsidian transition-colors faq-chevron flex-shrink-0">expand_more</span>
+                    </button>
+                    <div class="faq-answer text-slate-500 leading-relaxed text-sm max-w-3xl">
+                        Yes. From search to sent email, every step is automated. You only step in when a lead replies and is ready to talk.
+                    </div>
+                </div>
+                <div class="faq-item border-b border-slate-100 reveal">
+                    <button class="faq-toggle flex items-center justify-between w-full py-8 text-left group">
+                        <span class="text-lg md:text-xl text-black font-bold tracking-tight pr-4">What happens when a lead replies?</span>
+                        <span class="material-symbols-outlined text-slate-400 group-hover:text-obsidian transition-colors faq-chevron flex-shrink-0">expand_more</span>
+                    </button>
+                    <div class="faq-answer text-slate-500 leading-relaxed text-sm max-w-3xl">
+                        The reply tracker detects the response, updates the lead status, and triggers the Calendar Agent to schedule a meeting automatically.
+                    </div>
+                </div>
+                <div class="faq-item border-b border-slate-100 reveal">
+                    <button class="faq-toggle flex items-center justify-between w-full py-8 text-left group">
+                        <span class="text-lg md:text-xl text-black font-bold tracking-tight pr-4">Is there a free plan?</span>
+                        <span class="material-symbols-outlined text-slate-400 group-hover:text-obsidian transition-colors faq-chevron flex-shrink-0">expand_more</span>
+                    </button>
+                    <div class="faq-answer text-slate-500 leading-relaxed text-sm max-w-3xl">
+                        Yes. The Starter plan is free forever with 50 leads/month and basic email outreach. No credit card required.
+                    </div>
+                </div>
+                <div class="faq-item border-b border-slate-100 reveal">
+                    <button class="faq-toggle flex items-center justify-between w-full py-8 text-left group">
+                        <span class="text-lg md:text-xl text-black font-bold tracking-tight pr-4">Can I use my own email address?</span>
+                        <span class="material-symbols-outlined text-slate-400 group-hover:text-obsidian transition-colors faq-chevron flex-shrink-0">expand_more</span>
+                    </button>
+                    <div class="faq-answer text-slate-500 leading-relaxed text-sm max-w-3xl">
+                        Absolutely. Configure your Gmail credentials via App Password in the settings. No custom domain required.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 9: FINAL CTA BANNER -->
+    <!-- ============================================================ -->
+    <section class="w-full px-6 py-24">
+        <div class="max-w-6xl mx-auto rounded-[3rem] bg-gradient-to-br from-blue-500 via-primary to-cyan-400 p-12 md:p-20 text-center relative overflow-hidden shadow-2xl reveal">
+            <div class="absolute top-0 right-0 -mt-24 -mr-24 size-96 rounded-full bg-white/10 blur-[80px]"></div>
+            <div class="absolute bottom-0 left-0 -mb-24 -ml-24 size-96 rounded-full bg-cyan-200/20 blur-[80px]"></div>
+            <div class="absolute inset-0 opacity-15 pointer-events-none">
+                <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                    <defs><pattern height="10" id="grid" patternUnits="userSpaceOnUse" width="10"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5"></path></pattern></defs>
+                    <rect fill="url(#grid)" height="100" width="100"></rect>
+                </svg>
+            </div>
+            <div class="relative z-10">
+                <p class="text-white/70 text-xs font-bold uppercase tracking-[0.2em] mb-6">Start for free today</p>
+                <h2 class="instrument-serif text-4xl md:text-6xl text-white mb-8 italic">Your AI Sales Team Awaits</h2>
+                <p class="text-white/80 text-lg mb-12 max-w-xl mx-auto">
+                    Join teams using LeadPilot to find more leads, send smarter outreach, and book more meetings — on autopilot.
+                </p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+                    <button onclick="goToSignup()" class="w-full sm:w-auto px-12 py-5 bg-white text-blue-600 font-black text-lg rounded-full shadow-xl hover:scale-105 transition-transform active:scale-95">Get Started Free</button>
+                    <button onclick="scrollToSection('features')" class="w-full sm:w-auto px-12 py-5 border-2 border-white/30 text-white font-bold text-lg rounded-full hover:bg-white/10 transition-colors">View Features</button>
+                </div>
+                <p class="text-white/50 text-xs mt-8">No credit card required · Free forever plan · Cancel anytime</p>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- ============================================================ -->
+<!-- FOOTER -->
+<!-- ============================================================ -->
+<footer class="px-6 py-20 lg:px-20 bg-white border-t border-slate-100 relative z-20">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+        <div class="col-span-1 md:col-span-2">
+            <div class="flex items-center gap-2 mb-6">
+                <span class="material-symbols-outlined text-primary text-3xl">rocket_launch</span>
+                <span class="text-xl font-black tracking-tighter text-obsidian uppercase">LeadPilot</span>
+            </div>
+            <p class="text-slate-400 max-w-sm mb-8 text-sm">
+                AI-powered sales automation for modern businesses. Built with Google Gemini + BigQuery.
+            </p>
+        </div>
+        <div>
+            <h4 class="font-bold text-obsidian mb-6 uppercase text-[10px] tracking-widest">Product</h4>
+            <ul class="space-y-4 text-sm font-medium text-slate-400">
+                <li><a class="hover:text-primary transition-colors" href="#features">Features</a></li>
+                <li><a class="hover:text-primary transition-colors" href="#pricing">Pricing</a></li>
+                <li><a class="hover:text-primary transition-colors" href="/architecture_diagram" target="_blank">Architecture</a></li>
+            </ul>
+        </div>
+        <div>
+            <h4 class="font-bold text-obsidian mb-6 uppercase text-[10px] tracking-widest">Company</h4>
+            <ul class="space-y-4 text-sm font-medium text-slate-400">
+                <li><a class="hover:text-primary transition-colors" href="#faq">FAQ</a></li>
+                <li><a class="hover:text-primary transition-colors" href="mailto:kundarvinayak2004@gmail.com">Contact</a></li>
+                <li><a class="hover:text-primary transition-colors" href="#">Privacy Policy</a></li>
+                <li><a class="hover:text-primary transition-colors" href="#">Terms of Service</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="max-w-7xl mx-auto mt-16 pt-8 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+        <span class="text-[10px] font-bold text-slate-300 tracking-wider uppercase">© 2026 LeadPilot. All rights reserved.</span>
+        <span class="text-[10px] font-bold text-slate-300 tracking-wider">Made with ❤️ using Google Gemini + BigQuery</span>
+    </div>
+</footer>
+
+<!-- ============================================================ -->
+<!-- SCRIPTS -->
+<!-- ============================================================ -->
+<script>
+    // ─── Navigation helpers ─────────────────────────────────
+    function goToLogin()  { window.location.href = '/auth/login'; }
+    function goToSignup() { window.location.href = '/auth/signup'; }
+    function goToDashboard() { window.location.href = '/search'; }
+
+    function scrollToSection(id) {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ─── Clerk auth state for nav ───────────────────────────
+    async function initClerkNav() {
+        try {
+            if (!window.Clerk) { setTimeout(initClerkNav, 150); return; }
+            await window.Clerk.load();
+            const container = document.getElementById('nav-auth');
+            if (window.Clerk.user) {
+                const name = window.Clerk.user.firstName ||
+                    window.Clerk.user.emailAddresses[0]?.emailAddress.split('@')[0] || 'User';
+                const avatar = window.Clerk.user.imageUrl;
+                const initials = name.charAt(0).toUpperCase();
+                container.innerHTML = `
+                    <button onclick="goToDashboard()" class="hidden sm:block text-sm font-semibold text-slate-600 px-4 py-2 hover:text-primary transition-colors">Dashboard</button>
+                    <div class="relative" id="user-menu-wrap">
+                        <button onclick="document.getElementById('user-dd').classList.toggle('hidden')" class="flex items-center gap-2 tactile-cta text-white font-bold text-sm px-4 py-2 rounded-full">
+                            <div class="size-7 rounded-full bg-white/20 flex items-center justify-center text-xs font-bold">
+                                ${avatar ? `<img src="${avatar}" class="size-7 rounded-full object-cover" />` : initials}
+                            </div>
+                            ${name}
+                        </button>
+                        <div id="user-dd" class="hidden absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50">
+                            <button onclick="goToDashboard()" class="w-full text-left px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg">Dashboard</button>
+                            <button onclick="window.Clerk.openUserProfile()" class="w-full text-left px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg">Manage Account</button>
+                            <button onclick="window.Clerk.signOut().then(()=>window.location.reload())" class="w-full text-left px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-lg">Sign Out</button>
+                        </div>
+                    </div>`;
+                document.addEventListener('click', e => {
+                    if (!e.target.closest('#user-menu-wrap')) {
+                        const dd = document.getElementById('user-dd');
+                        if (dd) dd.classList.add('hidden');
+                    }
+                });
+            }
+        } catch (e) { console.error('Clerk nav error:', e); }
+    }
+    document.addEventListener('DOMContentLoaded', initClerkNav);
+    window.addEventListener('load', () => setTimeout(initClerkNav, 500));
+
+    // ─── Scroll reveal (IntersectionObserver) ───────────────
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry, i) => {
+            if (entry.isIntersecting) {
+                setTimeout(() => entry.target.classList.add('visible'), i * 80);
+                revealObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.1 });
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+    });
+
+    // ─── Count-up animation ─────────────────────────────────
+    function animateCountUp(el) {
+        const target = parseInt(el.dataset.target);
+        const duration = 2000;
+        const start = performance.now();
+        function tick(now) {
+            const progress = Math.min((now - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            el.textContent = Math.floor(eased * target).toLocaleString();
+            if (progress < 1) requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+    }
+    const countObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                animateCountUp(entry.target);
+                countObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.5 });
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.count-up').forEach(el => countObserver.observe(el));
+    });
+
+    // ─── FAQ Accordion ──────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.faq-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const item = btn.closest('.faq-item');
+                const wasOpen = item.classList.contains('open');
+                // Close all
+                document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+                // Toggle current
+                if (!wasOpen) item.classList.add('open');
+            });
+        });
+    });
+
+    // ─── Pricing Toggle ─────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        const btns = document.querySelectorAll('.pricing-toggle-btn');
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                btns.forEach(b => { b.classList.remove('pricing-toggle-active'); b.classList.add('text-slate-500'); });
+                btn.classList.add('pricing-toggle-active');
+                btn.classList.remove('text-slate-500');
+                const plan = btn.dataset.plan;
+                document.querySelectorAll('.pricing-amount').forEach(el => {
+                    el.textContent = el.dataset[plan];
+                });
+            });
+        });
+    });
+
+    // ─── Smooth scroll for anchor links ─────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('a[href^="#"]').forEach(a => {
+            a.addEventListener('click', e => {
+                e.preventDefault();
+                const id = a.getAttribute('href').slice(1);
+                scrollToSection(id);
+            });
+        });
+    });
+</script>
+
+</body>
+</html>
